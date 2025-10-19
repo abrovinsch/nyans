@@ -1,9 +1,24 @@
-const oskarColorTheme = [
+const referenceColors = [
 	"#b21638",
 	"#db8c8a",
 	"#dad8c9",
 	"#507ca7",
-	"#364e5e"
+	"#364e5e",
+	"#d3dfee",
+	"#f6f6f7",
+	"#292c33",
+	"#929ba4",
+	"#938a80",
+	"#95a390",
+	"#aeb398",
+	"#dad8c9",
+	"#d1b56d",
+	"#938a80",
+	"#74a372",
+	"#97b074",
+	"#d1c99f",
+	"#ebc35e",
+	"#938a80",
 ];
 
 // Declare the chart dimensions and margins.
@@ -31,12 +46,19 @@ const yScale = d3.scaleLinear()
 const rScale = d3.scaleLinear().domain([0, 1]).range([0, radius]);
 
 function scalePolar (color) {
+	let hsl = color.hsl();
+	let point = {
+		x: hsl[0],
+		y: hsl[1],
+		z: hsl[2]
+	}
 
-	let point = window.inputParameters.colorToPointConverter(color);
+	let yVariable = window.inputParameters.vizMode == 'hueVsLightness' ? point.z : point.y;
+
     const angleRad = (point.x - 90) * (Math.PI / 180); // rotate so 0° = up
     let polarPoint = {
-      x: cx + rScale(point.y) * Math.cos(angleRad),
-      y: cy + rScale(point.y) * Math.sin(angleRad)
+      x: cx + rScale(yVariable) * Math.cos(angleRad),
+      y: cy + rScale(yVariable) * Math.sin(angleRad)
     };
     return polarPoint;
   }
@@ -86,11 +108,9 @@ function updateGraph() {
 	// Update curves
 	const line = d3.line()
         .x(function(d) { 
-        	//let col = window.inputParameters.pointToColorConverter(d);
         	return scalePolar(d).x 
         }) 
         .y(function(d) { 
-        	//let col = window.inputParameters.pointToColorConverter(d);
         	return scalePolar(d).y 
         }) 
         .curve(d3.curveMonotoneX);
@@ -189,36 +209,27 @@ function interpolateLine(v, lineStartPoint, lineEndPoint) {
 }
 
 // Color space
-
-function pointToHSV_defaultSaturation(pt) {
-	return chroma.hsv(pt[0],window.inputParameters.saturation,pt[1])
+function pointToHSVColor(pt) {
+	return chroma.hsv(pt[0],pt[1],pt[2])
 }
 
-function HSVcolorToPoint_defaultSaturation(col) {
-	return {x: col.hsv()[0], y: col.hsv()[2]};
+function HSVcolorToPoint(col) {
+	return {x: col.hsv()[0], y: col.hsv()[1], z: col.hsv()[2]};
 }
 
-function pointToHSL_defaultSaturation(pt) {
-	return chroma.hsl(pt[0],window.inputParameters.saturation,pt[1])
+function pointToHSLColor(pt) {
+	return chroma.hsl(pt[0],pt[1],pt[2])
 }
 
-function HSLcolorToPoint_defaultSaturation(col) {
-	return {x: col.hsl()[0], y: col.hsl()[2]};
-}
-
-function pointToRGB_defaultG(pt) {
-	return chroma.rgb(pt[0],window.inputParameters.saturation,pt[1])
-}
-
-function RGBcolorToPoint_defaultG(col) {
-	return {x: col.rgb()[0], y: col.rgb()[2]};
+function HSLcolorToPoint(col) {
+	return {x: col.hsl()[0], y: col.hsl()[1], z: col.hsl()[2]};
 }
 
 // Color generation
 function evaluateColorRange(colorRange, divisions) {
 	let points = [];
-	points.push(colorRange[1]);
-	for (var i = divisions - 1; i >= 0; i--) {
+	//points.push(colorRange[1]);
+	for (var i = divisions; i >= 0; i--) {
 		let col = interpolatePolyLine(i/divisions, colorRange)
 		points.push(col);
 	}
@@ -227,23 +238,47 @@ function evaluateColorRange(colorRange, divisions) {
 	return colors;
 }
 
-function generateColorRanges(amount, offset, tilt, minValue, maxValue) {
+function generateColorRanges(amount, hueRotation, tilt, minLightness, maxLightness) {
 	let lines = [];
 
 	for(var i = 0; i < amount; i++) {
-		startHue = 360 * (i/amount) + offset;
-		if(startHue > 360) startHue - 360;
-		endHue = startHue + tilt;
+		
+		/* TODO: Smooth interpolation
+		
+		const smoothInterpolation = d3.scaleLinear()
+		  .domain([0, 0.5, 1])
+		  .range([low, mid, high])
+		  .interpolate(d3.interpolateCubic); // or d3.interpolateRgb, etc.
+		*/
+
+
+		let startColor = [
+			360 * (i/amount) + hueRotation, // Hue
+			window.inputParameters.lowSaturation, // Sat
+			maxLightness // Lightness
+		];
+
+		let endColor = [
+			startColor[0] + tilt,
+			window.inputParameters.highSaturation, 
+			minLightness
+		];
+
+		let midcolor = interpolateLine(0.5, startColor, endColor);
+		midcolor[1] = window.inputParameters.midSaturation;
+
 		lines.push([
-			[startHue, maxValue, 0],
-			[endHue, minValue, 0]
+			startColor,
+			midcolor,
+			endColor
 		])
 	}
 	return lines;
 }
 
 function calculateColors() {
-	window.colorPoints = []
+	//window.colorPoints = referenceColors.map(c => chroma(c));
+	window.colorPoints = [];
 
 	window.colorRanges = generateColorRanges(
 							window.inputParameters.hueCount, 
@@ -263,16 +298,21 @@ function calculateColors() {
 
 function init(){
 	window.inputParameters = {
-		pointsPerLine: 3,
-		saturation: 0.9,
-		hueCount: 1,
-		hueTilt: 10, 
-		hueOffset: 20,
-		minValue: 0.4,
-		maxValue: 0.99,
-		pointToColorConverter: pointToHSL_defaultSaturation,
-		colorToPointConverter: HSLcolorToPoint_defaultSaturation	
+		vizMode: "hueVsLightness",
+		pointsPerLine: 4,
+		hueCount: 3,
+		hueTilt: -10, 
+		hueOffset: -150,
+		minValue: 0.25,
+		maxValue: 0.9,
+		
+		lowSaturation: 0.12,
+		midSaturation: 0.3,
+		highSaturation: 0.5,
+
+		pointToColorConverter: pointToHSLColor,
 	}
+
 	prepareInputs();
 	calculateColors();
 	initGraph();
@@ -281,9 +321,20 @@ function init(){
 }
 
 function prepareInputs () {
-	// Saturation Slider
-	document.getElementById("saturation-input").addEventListener("input", (event) => {
-		window.inputParameters.saturation = Number(event.target.value);
+	document.getElementById("lowSaturation-input").addEventListener("input", (event) => {
+		window.inputParameters.lowSaturation = Number(event.target.value);
+		calculateColors();
+		updateLabels();
+	});	
+
+	document.getElementById("midSaturation-input").addEventListener("input", (event) => {
+		window.inputParameters.midSaturation = Number(event.target.value);
+		calculateColors();
+		updateLabels();
+	});	
+
+	document.getElementById("highSaturation-input").addEventListener("input", (event) => {
+		window.inputParameters.highSaturation = Number(event.target.value);
 		calculateColors();
 		updateLabels();
 	});	
@@ -324,12 +375,27 @@ function prepareInputs () {
 		updateLabels();
 	});
 
+	// Radio options
+	document.getElementById("hueVsLightness-input").addEventListener("input", (event) => {
+		window.inputParameters.vizMode = "hueVsLightness";
+		calculateColors();
+		updateLabels();
+	});	
+
+	document.getElementById("hueVsSaturation-input").addEventListener("input", (event) => {
+		window.inputParameters.vizMode = "hueVsSaturation";
+		calculateColors();
+		updateLabels();
+	});
+
 	updateLabels();
 }
 
 
 function updateLabels() {
-	document.getElementById("saturation-label").textContent = window.inputParameters.saturation;
+	document.getElementById("lowSaturation-label").textContent = window.inputParameters.lowSaturation;
+	document.getElementById("midSaturation-label").textContent = window.inputParameters.midSaturation;
+	document.getElementById("highSaturation-label").textContent = window.inputParameters.highSaturation;
 	document.getElementById("pointsPerLine-label").textContent = window.inputParameters.pointsPerLine;
 	document.getElementById("hueCount-label").textContent = window.inputParameters.hueCount;
 	document.getElementById("hueTilt-label").textContent = window.inputParameters.hueTilt;
