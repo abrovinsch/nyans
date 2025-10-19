@@ -331,6 +331,21 @@ function calculateColors() {
 	updateGraph();
 }
 
+function copyColorsToClipboard() {
+	let hexCodes = window.colorPoints.map(c => c.hex());
+	let text = hexCodes.join("\n");
+	setClipboard(text);
+}
+
+async function setClipboard(text) {
+  const type = "text/plain";
+  const clipboardItemData = {
+    [type]: text,
+  };
+  const clipboardItem = new ClipboardItem(clipboardItemData);
+  await navigator.clipboard.write([clipboardItem]);
+}
+
 function init(){
 	window.inputParameters = {
 		vizMode: "hueVsLightness",
@@ -356,6 +371,10 @@ function init(){
 }
 
 function prepareInputs () {
+	document.getElementById("copyColors-button").addEventListener("click", (event) => {
+		copyColorsToClipboard();
+	});		
+
 	document.getElementById("lowSaturation-input").addEventListener("input", (event) => {
 		window.inputParameters.lowSaturation = Number(event.target.value);
 		calculateColors();
