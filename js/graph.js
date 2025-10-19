@@ -22,14 +22,15 @@ const referenceColors = [
 ];
 
 // Declare the chart dimensions and margins.
-const width = 1000;
-const height = 750;
-const marginTop = 30;
-const marginRight = 30;
-const marginBottom = 30;
-const marginLeft = 30;
-const radius = height / 2;
+const width = 900;
+const height = 800;
+const marginTop = 50;
+const marginRight = 50;
+const marginBottom = 50;
+const marginLeft = 50;
 const dotRadius = 15;
+
+const radius = (height - marginTop - marginBottom) / 2;
 const cx = width / 2;
 const cy = height / 2;
 
@@ -53,7 +54,7 @@ function scalePolar (color) {
 		z: hsl[2]
 	}
 
-	let yVariable = window.inputParameters.vizMode == 'hueVsLightness' ? point.z : point.y;
+	let yVariable = window.inputParameters.vizMode == 'hueVsLightness' ? point.z : 1 - point.y;
 
     const angleRad = (point.x - 90) * (Math.PI / 180); // rotate so 0° = up
     let polarPoint = {
@@ -99,7 +100,7 @@ function updateGraph() {
 	let guideCurves = [];
 	for (var i = 0; i < window.colorRanges.length; i++) {
 		guideCurves.push(
-			evaluateColorRange(window.colorRanges[i], 10)
+			evaluateColorRange(window.colorRanges[i], 40)
 		);
 	}
 
@@ -148,13 +149,46 @@ function updateGraph() {
         .remove()
     );
 
+    drawColorGridSVG(points, window.inputParameters.pointsPerLine);
+
+	/*
     let list = d3.select("#colorList");
 
     list.selectAll("li")
 	  .data(points)
 	  .join("li")
 	  .style('background-color',d => d.hex());
+	*/
 }
+
+function drawColorGridSVG(colors, columns) {
+  const svg = d3.select("#colorGridSVG");
+  const totalWidth = 200;
+  const padding = 1;
+  const cellHeight = 30;
+  const yPadding = 6;
+
+  const cellWidth = (totalWidth - padding * (columns - 1)) / columns;
+  const rows = Math.ceil(colors.length / columns);
+  const totalHeight = rows * (cellHeight + yPadding);
+  
+  svg.attr("width", totalWidth)
+     .attr("height", totalHeight);
+  
+  const cells = svg.selectAll("rect")
+    .data(colors)
+    .join("rect")
+    .attr("width", cellWidth)
+    .attr("height", cellHeight)
+    .attr("x", (d, i) => (i % columns) * (cellWidth + padding))
+    .attr("y", (d, i) => Math.floor(i / columns) * (cellHeight + yPadding))
+    .attr("fill", d => d);
+}
+
+// Example usage
+const colors = ["#b21638","#db8c8a","#dad8c9","#507ca7","#364e5e"];
+drawColorGridSVG(colors, 3);
+
 
 // Geometry
 function dist(a, b) {
@@ -228,11 +262,12 @@ function HSLcolorToPoint(col) {
 // Color generation
 function evaluateColorRange(colorRange, divisions) {
 	let points = [];
-	//points.push(colorRange[1]);
-	for (var i = divisions; i >= 0; i--) {
-		let col = interpolatePolyLine(i/divisions, colorRange)
+
+	for (var i = 0; i < divisions - 1; i++) {
+		let col = interpolatePolyLine(i/(divisions - 1), colorRange)
 		points.push(col);
 	}
+	points.push(interpolatePolyLine(1,colorRange));
 
 	let colors = points.map(c => window.inputParameters.pointToColorConverter(c))
 	return colors;
@@ -253,7 +288,7 @@ function generateColorRanges(amount, hueRotation, tilt, minLightness, maxLightne
 
 
 		let startColor = [
-			360 * (i/amount) + hueRotation, // Hue
+			360 * (i/amount) + (hueRotation - tilt / 2), // Hue
 			window.inputParameters.highSaturation, // Sat
 			maxLightness // Lightness
 		];
@@ -300,9 +335,9 @@ function init(){
 	window.inputParameters = {
 		vizMode: "hueVsLightness",
 		pointsPerLine: 4,
-		hueCount: 3,
+		hueCount: 2,
 		hueTilt: -10, 
-		hueOffset: -150,
+		hueOffset: 0,
 		minValue: 0.25,
 		maxValue: 0.9,
 		
@@ -391,17 +426,29 @@ function prepareInputs () {
 	updateLabels();
 }
 
+function toPercentage(value) {
+	return Math.round(value * 100) + "%";
+}
 
 function updateLabels() {
-	document.getElementById("lowSaturation-label").textContent = window.inputParameters.lowSaturation;
-	document.getElementById("midSaturation-label").textContent = window.inputParameters.midSaturation;
-	document.getElementById("highSaturation-label").textContent = window.inputParameters.highSaturation;
+	document.getElementById("lowSaturation-input").value = inputParameters.lowSaturation;
+	document.getElementById("lowSaturation-label").textContent = toPercentage(inputParameters.lowSaturation);
+	document.getElementById("midSaturation-input").value = window.inputParameters.midSaturation;
+	document.getElementById("midSaturation-label").textContent = toPercentage(window.inputParameters.midSaturation);
+	document.getElementById("highSaturation-input").value = window.inputParameters.highSaturation;
+	document.getElementById("highSaturation-label").textContent = toPercentage(window.inputParameters.highSaturation);
+	document.getElementById("pointsPerLine-input").value = window.inputParameters.pointsPerLine;
 	document.getElementById("pointsPerLine-label").textContent = window.inputParameters.pointsPerLine;
+	document.getElementById("hueCount-input").value = window.inputParameters.hueCount;
 	document.getElementById("hueCount-label").textContent = window.inputParameters.hueCount;
-	document.getElementById("hueTilt-label").textContent = window.inputParameters.hueTilt;
-	document.getElementById("hueOffset-label").textContent = window.inputParameters.hueOffset;
-	document.getElementById("minValue-label").textContent = window.inputParameters.minValue;
-	document.getElementById("maxValue-label").textContent = window.inputParameters.maxValue;
+	document.getElementById("hueTilt-input").value = window.inputParameters.hueTilt;
+	document.getElementById("hueTilt-label").textContent = window.inputParameters.hueTilt  + "°";
+	document.getElementById("hueOffset-input").value = window.inputParameters.hueOffset;
+	document.getElementById("hueOffset-label").textContent = window.inputParameters.hueOffset + "°";
+	document.getElementById("minValue-input").value = window.inputParameters.minValue;
+	document.getElementById("minValue-label").textContent = toPercentage(window.inputParameters.minValue);
+	document.getElementById("maxValue-input").value = window.inputParameters.maxValue;
+	document.getElementById("maxValue-label").textContent = toPercentage(window.inputParameters.maxValue);
 	//updateColorList();
 }
 

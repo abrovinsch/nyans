@@ -13,15 +13,16 @@ body {
 
 ul {
 	margin-right: 2px;
+	display: inline;
 }
 
 li {
 	font-size: 8pt;
 	padding: 5px;
 	text-decoration: none;
-	margin: 2px;
+	margin: 1px;
 	list-style-type: none;
-	min-height: 12px;
+	min-height: 8px;
 	min-width: 12px;
 
 }
@@ -37,9 +38,14 @@ fieldset {
 }
 
 input.slider {
-	min-width: 220px;
+	min-width: 250px;
 }
 
 h4 {
-	margin-top: 0px;
+	margin-top: 20px;
+	margin-bottom: 8px;
+}
+
+p {
+	margin-bottom: 2px;
 }
