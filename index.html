@@ -14,9 +14,15 @@
     <script src="js/graph.js"></script>
     <div class="main">
       <div>
-        <svg id="colorGridSVG" width="300" height="1000"></svg>
-        <br/>
-        <button id="copyColors-button">Copy to clipboard</button>
+        <h4>New</h4>
+        <svg id="colorGridSVG" width="200" ></svg>
+        <h4>Saved</h4>
+        <svg id="savedColorsSVG" width="200"></svg>
+        <button id="copyColors-button">Copy new colors</button>
+        <button id="pasteColors-button">Paste colors</button>
+        <button id="saveColors-button">Save new colors</button>
+        <button id="copyReferenceColors-button">Copy saved colors</button>
+        <button id="clearSavedColors-button">Clear</button>
       </div>
       <div id="graph">
         <svg id="chart1"></svg>

@@ -1,4 +1,4 @@
-const referenceColors = [
+const testReferenceColorsList = [
 	"#b21638",
 	"#db8c8a",
 	"#dad8c9",
@@ -117,8 +117,8 @@ function updateGraph() {
         .curve(d3.curveMonotoneX);
 
     let guideCurveColor= chroma.hsl(0,0,0.3);
-	const curves = svg.selectAll("path.guideCurves").data(guideCurves);
-	curves.join(
+	const guideCurvePaths = svg.selectAll("path.guideCurves").data(guideCurves);
+	guideCurvePaths.join(
       enter => enter.append("path")
       	.attr("class","guideCurves")
 		.attr("stroke", guideCurveColor)
@@ -132,8 +132,8 @@ function updateGraph() {
     );
 
 	// Update dots
-	const dots = svg.selectAll("circle.proceduralColorCircle").data(points);
-	dots.join(
+	const proceduralColors = svg.selectAll("circle.proceduralColorCircle").data(points);
+	proceduralColors.join(
       enter => enter.append("circle")
         .attr("cx", function (d) { return scalePolar(d).x })
         .attr("cy", function (d) { return scalePolar(d).y })
@@ -149,7 +149,29 @@ function updateGraph() {
         .remove()
     );
 
-    drawColorGridSVG(points, window.inputParameters.pointsPerLine);
+    // Draw reference colors
+    const referenceColors = svg.selectAll("rect.referenceColors").data(window.referenceColors);
+   	referenceSquareSide = 20;
+	referenceColors.join(
+      enter => enter.append("rect")
+        .attr("x", function (d) { return scalePolar(d).x - referenceSquareSide / 2})
+        .attr("y", function (d) { return scalePolar(d).y - referenceSquareSide / 2})
+        .attr("class", "referenceColors")
+        .attr("width", referenceSquareSide)
+        .attr("height", referenceSquareSide)
+        .style("fill", function (d) {return d.hex()}),
+      update => update
+        .attr("x", function (d) { return scalePolar(d).x - referenceSquareSide / 2})
+        .attr("y", function (d) { return scalePolar(d).y - referenceSquareSide / 2})
+        .attr("width", referenceSquareSide)
+        .attr("height", referenceSquareSide)
+        .style("fill", function (d) {return d.hex()}),
+      exit => exit
+        .remove()
+    );
+
+    drawColorGridSVG(points, window.inputParameters.pointsPerLine, "#colorGridSVG");
+    drawColorGridSVG(window.referenceColors, window.inputParameters.pointsPerLine, "#savedColorsSVG");
 
 	/*
     let list = d3.select("#colorList");
@@ -161,8 +183,10 @@ function updateGraph() {
 	*/
 }
 
-function drawColorGridSVG(colors, columns) {
-  const svg = d3.select("#colorGridSVG");
+function drawColorGridSVG(colors, columns, id) {
+  if(colors.length == 0) return;
+
+  const svg = d3.select(id);
   const totalWidth = 200;
   const padding = 1;
   const cellHeight = 30;
@@ -184,11 +208,6 @@ function drawColorGridSVG(colors, columns) {
     .attr("y", (d, i) => Math.floor(i / columns) * (cellHeight + yPadding))
     .attr("fill", d => d);
 }
-
-// Example usage
-const colors = ["#b21638","#db8c8a","#dad8c9","#507ca7","#364e5e"];
-drawColorGridSVG(colors, 3);
-
 
 // Geometry
 function dist(a, b) {
@@ -312,7 +331,6 @@ function generateColorRanges(amount, hueRotation, tilt, minLightness, maxLightne
 }
 
 function calculateColors() {
-	//window.colorPoints = referenceColors.map(c => chroma(c));
 	window.colorPoints = [];
 
 	window.colorRanges = generateColorRanges(
@@ -331,11 +349,33 @@ function calculateColors() {
 	updateGraph();
 }
 
-function copyColorsToClipboard() {
-	let hexCodes = window.colorPoints.map(c => c.hex());
+function saveColors(colors) {
+	window.referenceColors = window.referenceColors.concat(colors);
+	updateGraph();
+}
+
+function clearSavedColors() {
+	window.referenceColors = [];
+	updateGraph();
+}
+
+function copyColorsToClipboard(colors) {
+	let hexCodes = colors.map(c => c.hex());
 	let text = hexCodes.join("\n");
 	setClipboard(text);
 }
+
+async function pasteColors() {
+	
+	await navigator.clipboard.readText().then(t => {
+		console.log(t);
+		let lines = t.split("\n");
+		let hex = lines.filter(line => chroma.valid(line.trim()));
+		let colorsToSave = hex.map(c => chroma(c));
+		saveColors(colorsToSave);
+	});
+}
+
 
 async function setClipboard(text) {
   const type = "text/plain";
@@ -363,6 +403,9 @@ function init(){
 		pointToColorConverter: pointToHSLColor,
 	}
 
+	//window.referenceColors = testReferenceColorsList.map(c => chroma(c));
+	window.referenceColors = [];
+
 	prepareInputs();
 	calculateColors();
 	initGraph();
@@ -371,10 +414,29 @@ function init(){
 }
 
 function prepareInputs () {
+	// Buttons
+
 	document.getElementById("copyColors-button").addEventListener("click", (event) => {
-		copyColorsToClipboard();
+		copyColorsToClipboard(window.colorPoints);
 	});		
 
+	document.getElementById("copyReferenceColors-button").addEventListener("click", (event) => {
+		copyColorsToClipboard(window.referenceColors);
+	});		
+
+	document.getElementById("pasteColors-button").addEventListener("click", (event) => {
+		pasteColors();
+	});		
+
+	document.getElementById("saveColors-button").addEventListener("click", (event) => {
+		saveColors(window.colorPoints);
+	});			
+
+	document.getElementById("clearSavedColors-button").addEventListener("click", (event) => {
+		clearSavedColors();
+	});		
+
+	// Sliders
 	document.getElementById("lowSaturation-input").addEventListener("input", (event) => {
 		window.inputParameters.lowSaturation = Number(event.target.value);
 		calculateColors();

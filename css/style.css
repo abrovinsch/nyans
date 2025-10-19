@@ -27,6 +27,11 @@ li {
 
 }
 
+button {
+	margin-bottom: 6px;
+	display: block;
+}
+
 .radio-option {
 	display: inline;
 }
