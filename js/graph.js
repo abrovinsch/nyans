@@ -254,13 +254,13 @@ function generateColorRanges(amount, hueRotation, tilt, minLightness, maxLightne
 
 		let startColor = [
 			360 * (i/amount) + hueRotation, // Hue
-			window.inputParameters.lowSaturation, // Sat
+			window.inputParameters.highSaturation, // Sat
 			maxLightness // Lightness
 		];
 
 		let endColor = [
 			startColor[0] + tilt,
-			window.inputParameters.highSaturation, 
+			window.inputParameters.lowSaturation, 
 			minLightness
 		];
 
