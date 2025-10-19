@@ -1,0 +1,31 @@
+body {
+	font-family: Helvetica;
+	padding: 0.2cm;
+}
+
+.main {
+  display: flex;
+flex-direction: row;
+	align-items: flex-start;  /* top-align both panels */
+	justify-content: flex-start;
+	height: 100vh;
+}
+
+ul {
+	margin-right: 60px;
+}
+
+li {
+	font-size: 8pt;
+	padding: 5px;
+	text-decoration: none;
+	margin: 2px;
+	list-style-type: none;
+	min-height: 12px;
+	min-width: 12px;
+
+}
+
+input {
+	min-width: 220px;
+}
