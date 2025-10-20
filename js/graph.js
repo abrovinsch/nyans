@@ -176,6 +176,27 @@ function updateGraph() {
         .remove()
     );
 
+    // Draw test colors
+    const testColorCircles = svg.selectAll("circle.testColors").data(window.testColors);
+   	let testColorRadius = 10;
+	testColorCircles.join(
+      enter => enter.append("circle")
+        .attr("cx", function (d) { return scalePolar(d).x })
+        .attr("cy", function (d) { return scalePolar(d).y })
+        .attr("class", "testColors")
+        .attr("r", testColorRadius)
+        .style("fill", function (d) {return d.hex()})
+        .attr("visibility", window.showColorspaceTestColors ? "visible" : "hidden"),
+      update => update
+        .attr("cx", function (d) { return scalePolar(d).x })
+        .attr("cy", function (d) { return scalePolar(d).y })
+        .attr("r", testColorRadius)
+        .style("fill", function (d) {return d.hex()})
+        .attr("visibility", window.showColorspaceTestColors ? "visible" : "hidden"),
+      exit => exit
+        .remove()
+    );
+
 	// Draw color grids
     drawColorGridSVG(points, window.inputParameters.pointsPerLine, "#colorGridSVG");
     drawColorGridSVG(window.referenceColors, window.inputParameters.pointsPerLine, "#savedColorsSVG");
@@ -290,7 +311,7 @@ function evaluateColorRange(colorRange, divisions) {
 	return colors;
 }
 
-function generateColorRanges(amount, hueRotation, tilt, minLightness, maxLightness) {
+function generateColorRanges(amount, hueRotation, tilt, minLightness, maxLightness, lowSat, midSat, highSat) {
 	let lines = [];
 
 	for(var i = 0; i < amount; i++) {
@@ -306,18 +327,18 @@ function generateColorRanges(amount, hueRotation, tilt, minLightness, maxLightne
 
 		let startColor = [
 			360 * (i/amount) + (hueRotation - tilt / 2), // Hue
-			window.inputParameters.highSaturation, // Sat
+			highSat, // Sat
 			maxLightness // Lightness
 		];
 
 		let endColor = [
 			startColor[0] + tilt,
-			window.inputParameters.lowSaturation, 
+			lowSat, 
 			minLightness
 		];
 
 		let midcolor = interpolateLine(0.5, startColor, endColor);
-		midcolor[1] = window.inputParameters.midSaturation;
+		midcolor[1] = midSat;
 
 		lines.push([
 			startColor,
@@ -328,6 +349,44 @@ function generateColorRanges(amount, hueRotation, tilt, minLightness, maxLightne
 	return lines;
 }
 
+function calculateTestColors() {
+	window.testColors = [];
+
+	let testColorDepth = 10;
+	let testColorHues = 36*2;
+	let testColorRanges = [];
+
+	testColorRanges = testColorRanges.concat(
+			testColorRanges,
+			generateColorRanges(
+							testColorHues, 
+							0,
+							0,
+							0.1,
+							0.9,
+							0.99,
+							0.99,
+							0.99
+							)); 
+	testColorRanges = testColorRanges.concat(
+			testColorRanges,
+			generateColorRanges(
+							testColorHues, 
+							0,
+							0,
+							0.05,
+							0.85,
+							0.5,
+							0.5,
+							0.5
+							)); 
+
+	for (var i = testColorRanges.length - 1; i >= 0; i--) {
+		let colors = evaluateColorRange(testColorRanges[i], testColorDepth);
+		window.testColors = window.testColors.concat(colors);
+	}
+}
+
 function calculateProceduralColors() {
 	window.proceduralColors = [];
 
@@ -336,14 +395,21 @@ function calculateProceduralColors() {
 							window.inputParameters.hueOffset,
 							window.inputParameters.hueTilt,
 							window.inputParameters.minValue,
-							window.inputParameters.maxValue
+							window.inputParameters.maxValue,
+							window.inputParameters.lowSaturation,
+							window.inputParameters.midSaturation,
+							window.inputParameters.highSaturation
 							); 
 
 	for (var i = window.colorRanges.length - 1; i >= 0; i--) {
 		let colors = evaluateColorRange(window.colorRanges[i], window.inputParameters.pointsPerLine);
 		window.proceduralColors = window.proceduralColors.concat(colors);
 	}
+}
 
+function updateColorDisplay() {
+	calculateProceduralColors();
+	calculateTestColors();
 	updateGraph();
 }
 
@@ -401,6 +467,7 @@ function init(){
 		pointToColorConverter: pointToHSLColor,
 	}
 
+	window.showColorspaceTestColors = false;
 	window.showProceduralColors = true;
 	window.showReferenceColors = false;
 
@@ -409,7 +476,7 @@ function init(){
 	window.referenceColors = [];
 
 	prepareInputs();
-	calculateProceduralColors();
+	updateColorDisplay();
 	initGraph();
 	updateGraph();
 	updateUI();
@@ -419,13 +486,19 @@ function prepareInputs () {
 	// Color headings
 	document.getElementById("referenceColor-heading").addEventListener("click", (event) => {
 		window.showReferenceColors = !window.showReferenceColors;
-		calculateProceduralColors();
+		updateColorDisplay();
 		updateUI();
 	});	
 
 	document.getElementById("proceduralColors-heading").addEventListener("click", (event) => {
 		window.showProceduralColors = !window.showProceduralColors;
-		calculateProceduralColors();
+		updateColorDisplay();
+		updateUI();
+	});	
+
+	document.getElementById("colorspaceTestColors-heading").addEventListener("click", (event) => {
+		window.showColorspaceTestColors = !window.showColorspaceTestColors;
+		updateColorDisplay();
 		updateUI();
 	});	
 
@@ -454,68 +527,68 @@ function prepareInputs () {
 	// Sliders
 	document.getElementById("lowSaturation-input").addEventListener("input", (event) => {
 		window.inputParameters.lowSaturation = Number(event.target.value);
-		calculateProceduralColors();
+		updateColorDisplay();
 		updateUI();
 	});	
 
 	document.getElementById("midSaturation-input").addEventListener("input", (event) => {
 		window.inputParameters.midSaturation = Number(event.target.value);
-		calculateProceduralColors();
+		updateColorDisplay();
 		updateUI();
 	});	
 
 	document.getElementById("highSaturation-input").addEventListener("input", (event) => {
 		window.inputParameters.highSaturation = Number(event.target.value);
-		calculateProceduralColors();
+		updateColorDisplay();
 		updateUI();
 	});	
 
 	document.getElementById("pointsPerLine-input").addEventListener("input", (event) => {
 		window.inputParameters.pointsPerLine = Number(event.target.value);
-		calculateProceduralColors();
+		updateColorDisplay();
 		updateUI();
 	});	
 
 	document.getElementById("hueCount-input").addEventListener("input", (event) => {
 		window.inputParameters.hueCount = Number(event.target.value);
-		calculateProceduralColors();
+		updateColorDisplay();
 		updateUI();
 	});
 
 	document.getElementById("hueTilt-input").addEventListener("input", (event) => {
 		window.inputParameters.hueTilt = Number(event.target.value);
-		calculateProceduralColors();
+		updateColorDisplay();
 		updateUI();
 	});
 
 	document.getElementById("hueOffset-input").addEventListener("input", (event) => {
 		window.inputParameters.hueOffset = Number(event.target.value);
-		calculateProceduralColors();
+		updateColorDisplay();
 		updateUI();
 	});
 
 	document.getElementById("minValue-input").addEventListener("input", (event) => {
 		window.inputParameters.minValue = Number(event.target.value);
-		calculateProceduralColors();
+		updateColorDisplay();
 		updateUI();
 	});
 
 	document.getElementById("maxValue-input").addEventListener("input", (event) => {
 		window.inputParameters.maxValue = Number(event.target.value);
-		calculateProceduralColors();
+		updateColorDisplay();
 		updateUI();
 	});
 
 	// Radio options
 	document.getElementById("hueVsLightness-input").addEventListener("input", (event) => {
 		window.inputParameters.vizMode = "hueVsLightness";
-		calculateProceduralColors();
+		updateColorDisplay();
 		updateUI();
 	});	
 
 	document.getElementById("hueVsSaturation-input").addEventListener("input", (event) => {
 		window.inputParameters.vizMode = "hueVsSaturation";
-		calculateProceduralColors();
+		updateColorDisplay();
 		updateUI();
 	});
 
@@ -554,6 +627,8 @@ function updateUI() {
 
 	document.getElementById("proceduralColors-heading").style.color = window.showProceduralColors ? "black" : "gray";
 	document.getElementById("colorGridSVG").style.display = window.showProceduralColors ? "block" : "none";
+
+	document.getElementById("colorspaceTestColors-heading").style.color = window.showColorspaceTestColors ? "black" : "gray";
 }
 
 window.onload = init;
