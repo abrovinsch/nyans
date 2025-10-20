@@ -178,7 +178,7 @@ function updateGraph() {
 
     // Draw test colors
     const testColorCircles = svg.selectAll("circle.testColors").data(window.testColors);
-   	let testColorRadius = 10;
+   	let testColorRadius = 20;
 	testColorCircles.join(
       enter => enter.append("circle")
         .attr("cx", function (d) { return scalePolar(d).x })
@@ -352,8 +352,8 @@ function generateColorRanges(amount, hueRotation, tilt, minLightness, maxLightne
 function calculateTestColors() {
 	window.testColors = [];
 
-	let testColorDepth = 10;
-	let testColorHues = 36*2;
+	let testColorDepth = 5;
+	let testColorHues = 12;
 	let testColorRanges = [];
 
 	testColorRanges = testColorRanges.concat(
@@ -367,18 +367,6 @@ function calculateTestColors() {
 							0.99,
 							0.99,
 							0.99
-							)); 
-	testColorRanges = testColorRanges.concat(
-			testColorRanges,
-			generateColorRanges(
-							testColorHues, 
-							0,
-							0,
-							0.05,
-							0.85,
-							0.5,
-							0.5,
-							0.5
 							)); 
 
 	for (var i = testColorRanges.length - 1; i >= 0; i--) {
@@ -476,8 +464,8 @@ function init(){
 	window.referenceColors = [];
 
 	prepareInputs();
-	updateColorDisplay();
 	initGraph();
+	updateColorDisplay();
 	updateGraph();
 	updateUI();
 }
