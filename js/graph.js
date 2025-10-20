@@ -163,28 +163,22 @@ function updateGraph() {
         .attr("class", "referenceColors")
         .attr("width", referenceSquareSide)
         .attr("height", referenceSquareSide)
+        .attr("visibility", window.showReferenceColors ? "visible" : "hidden")
         .style("fill", function (d) {return d.hex()}),
       update => update
         .attr("x", function (d) { return scalePolar(d).x - referenceSquareSide / 2})
         .attr("y", function (d) { return scalePolar(d).y - referenceSquareSide / 2})
         .attr("width", referenceSquareSide)
         .attr("height", referenceSquareSide)
+        .attr("visibility", window.showReferenceColors ? "visible" : "hidden")
         .style("fill", function (d) {return d.hex()}),
       exit => exit
         .remove()
     );
 
+	// Draw color grids
     drawColorGridSVG(points, window.inputParameters.pointsPerLine, "#colorGridSVG");
     drawColorGridSVG(window.referenceColors, window.inputParameters.pointsPerLine, "#savedColorsSVG");
-
-	/*
-    let list = d3.select("#colorList");
-
-    list.selectAll("li")
-	  .data(points)
-	  .join("li")
-	  .style('background-color',d => d.hex());
-	*/
 }
 
 function drawColorGridSVG(colors, columns, id) {
@@ -556,10 +550,10 @@ function updateUI() {
 
 	// Labels
 	document.getElementById("referenceColor-heading").style.color = window.showReferenceColors ? "black" : "gray";
-	document.getElementById("savedColorsSVG").style.visibility = window.showReferenceColors ? "visible" : "hidden";
+	document.getElementById("savedColorsSVG").style.display = window.showReferenceColors ? "block" : "none";
 
 	document.getElementById("proceduralColors-heading").style.color = window.showProceduralColors ? "black" : "gray";
-	document.getElementById("colorGridSVG").style.visibility = window.showProceduralColors ? "visible" : "hidden";
+	document.getElementById("colorGridSVG").style.display = window.showProceduralColors ? "block" : "none";
 }
 
 window.onload = init;

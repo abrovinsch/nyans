@@ -13,17 +13,19 @@
     <script src="lib/chroma.min.js"></script>
     <script src="js/graph.js"></script>
     <div class="main">
-      <div>
-        <h4 id="proceduralColors-heading">New</h4>
-        <svg id="colorGridSVG" width="200" ></svg>
-        <h4 id="referenceColor-heading">Saved</h4>
-        <svg id="savedColorsSVG" width="200"></svg>
+
+      <div class="colorsPanel">
         <button id="copyColors-button">Copy new colors</button>
         <button id="pasteColors-button">Paste colors</button>
         <button id="saveColors-button">Save new colors</button>
         <button id="copyReferenceColors-button">Copy saved colors</button>
         <button id="clearSavedColors-button">Clear</button>
+        <h4 id="proceduralColors-heading">New</h4>
+        <svg id="colorGridSVG" width="200" ></svg>
+        <h4 id="referenceColor-heading">Saved</h4>
+        <svg id="savedColorsSVG" width="200"></svg>
       </div>
+
       <div id="graph">
         <svg id="chart1"></svg>
       </div>

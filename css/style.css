@@ -3,6 +3,10 @@ body {
 	padding: 0.2cm;
 }
 
+.colorsPanel {
+	min-width: 210px;
+}
+
 .main {
   display: flex;
 	flex-direction: row;
@@ -54,3 +58,5 @@ h4 {
 p {
 	margin-bottom: 2px;
 }
+
+#left
