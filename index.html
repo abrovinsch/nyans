@@ -15,16 +15,42 @@
     <div class="main">
 
       <div class="colorsPanel">
-        <button id="copyColors-button">Copy new colors</button>
-        <button id="pasteColors-button">Paste colors</button>
-        <button id="saveColors-button">Save new colors</button>
-        <button id="copyReferenceColors-button">Copy saved colors</button>
-        <button id="clearSavedColors-button">Clear</button>
+        <h3 id="settings-heading">Settings</h3>
+        <div id="settings-items">
+          <h4>Visualization</h4>
+          <fieldset>
+            <div class="radio-option">
+              <input type="radio" id="hueVsLightness-input" name="drone" value="HueVsLightness" checked />
+              <label for="HueVsLightness">Hue vs Lightness</label>
+            </div>
+            <div  class="radio-option">
+              <input type="radio" id="hueVsSaturation-input" name="drone" value="hueVsSaturation" />
+              <label for="hueVsSaturation">Hue vs Saturation</label>
+            </div>
+          </fieldset>
+          <h4 id="colorspaceTestColors-heading">Colorspace</h4>
+          <div id="colorspaceTestColors-items">
+            <p>Colorspace: HSL</p>
+          </div>
+        </div>
+
+        <h3>Colors</h3>
+
         <h4 id="proceduralColors-heading">New</h4>
-        <svg id="colorGridSVG" width="200" ></svg>
+        <div id="proceduralColors-items">
+          <svg id="colorGridSVG" width="200" ></svg>
+          <button id="copyColors-button">Copy new colors</button>
+          <button id="saveColors-button">Save new colors</button>
+        </div>
+        
         <h4 id="referenceColor-heading">Saved</h4>
-        <svg id="savedColorsSVG" width="200"></svg>
-        <h4 id="colorspaceTestColors-heading">Test colors</h4>
+        <div id="referenceColor-items">
+          <svg id="savedColorsSVG" width="200"></svg>
+          <button id="pasteColors-button">Paste colors</button>
+          <button id="copyReferenceColors-button">Copy saved colors</button>
+          <button id="clearSavedColors-button">Clear</button>
+        </div>
+
       </div>
 
       <div id="graph">
@@ -32,6 +58,7 @@
       </div>
       
       <div class="controls">
+        <h3>Create colors</h3>
         <h4>Color groups</h4>
         <span>
           <p>Number of hue groups</p>
@@ -82,19 +109,6 @@
           <input class="slider" type="range" id="maxValue-input" name="maxValue" step = "0.01" min="0.01" max="0.99" />
           <span id="maxValue-label">-</span>
         </span>
-        <h4>Visualization</h4>
-        <fieldset>
-          <div class="radio-option">
-            <input type="radio" id="hueVsLightness-input" name="drone" value="HueVsLightness" checked />
-            <label for="HueVsLightness">Hue vs Lightness</label>
-          </div>
-
-          <div  class="radio-option">
-            <input type="radio" id="hueVsSaturation-input" name="drone" value="hueVsSaturation" />
-            <label for="hueVsSaturation">Hue vs Saturation</label>
-          </div>
-
-        </fieldset>
       </div>      
     </div>      
   </body>

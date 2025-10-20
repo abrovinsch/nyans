@@ -22,7 +22,7 @@ const testReferenceColorsList = [
 ];
 
 // Declare the chart dimensions and margins.
-const width = 900;
+const width = 850;
 const height = 800;
 const marginTop = 50;
 const marginRight = 50;
@@ -398,6 +398,7 @@ function calculateProceduralColors() {
 function updateColorDisplay() {
 	calculateProceduralColors();
 	calculateTestColors();
+	updateUI();
 	updateGraph();
 }
 
@@ -408,7 +409,8 @@ function saveColors(colors) {
 
 function clearSavedColors() {
 	window.referenceColors = [];
-	updateGraph();
+	updateColorDisplay();
+	updateUI();
 }
 
 function copyColorsToClipboard(colors) {
@@ -458,6 +460,7 @@ function init(){
 	window.showColorspaceTestColors = false;
 	window.showProceduralColors = true;
 	window.showReferenceColors = false;
+	window.showSettings = false;
 
 
 	//window.referenceColors = testReferenceColorsList.map(c => chroma(c));
@@ -486,6 +489,12 @@ function prepareInputs () {
 
 	document.getElementById("colorspaceTestColors-heading").addEventListener("click", (event) => {
 		window.showColorspaceTestColors = !window.showColorspaceTestColors;
+		updateColorDisplay();
+		updateUI();
+	});	
+
+	document.getElementById("settings-heading").addEventListener("click", (event) => {
+		window.showSettings = !window.showSettings;
 		updateColorDisplay();
 		updateUI();
 	});	
@@ -610,13 +619,18 @@ function updateUI() {
 	document.getElementById("maxValue-label").textContent = toPercentage(window.inputParameters.maxValue);
 
 	// Labels
+	document.getElementById("settings-heading").style.color = window.showSettings ? "black" : "gray";
+	document.getElementById("settings-items").style.display = window.showSettings ? "block" : "none";
+
 	document.getElementById("referenceColor-heading").style.color = window.showReferenceColors ? "black" : "gray";
-	document.getElementById("savedColorsSVG").style.display = window.showReferenceColors ? "block" : "none";
+	document.getElementById("referenceColor-items").style.display = window.showReferenceColors ? "block" : "none";
 
 	document.getElementById("proceduralColors-heading").style.color = window.showProceduralColors ? "black" : "gray";
-	document.getElementById("colorGridSVG").style.display = window.showProceduralColors ? "block" : "none";
+	document.getElementById("proceduralColors-items").style.display = window.showProceduralColors ? "block" : "none";
 
 	document.getElementById("colorspaceTestColors-heading").style.color = window.showColorspaceTestColors ? "black" : "gray";
+	document.getElementById("colorspaceTestColors-items").style.display = window.showColorspaceTestColors ? "block" : "none";
+
 }
 
 window.onload = init;
