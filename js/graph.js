@@ -96,7 +96,7 @@ function initGraph() {
 }
 
 function updateGraph() {
-	let points = window.colorPoints;
+	let points = window.proceduralColors;
 	let guideCurves = [];
 	for (var i = 0; i < window.colorRanges.length; i++) {
 		guideCurves.push(
@@ -106,7 +106,7 @@ function updateGraph() {
 
 	const svg = d3.select("#chart1");
 
-	// Update curves
+	// Draw procedural guide curves
 	const line = d3.line()
         .x(function(d) { 
         	return scalePolar(d).x 
@@ -124,14 +124,16 @@ function updateGraph() {
 		.attr("stroke", guideCurveColor)
 		.attr("stroke-width", 0.2)
 		.attr("fill", "none")
+		.attr("visibility", window.showProceduralColors ? "visible" : "hidden")
 		.attr("d", line),
       update => update
-		.attr("d", line),
+		.attr("d", line)
+		.attr("visibility", window.showProceduralColors ? "visible" : "hidden"),
       exit => exit
         .remove()
     );
 
-	// Update dots
+	// Draw procedural colors 
 	const proceduralColors = svg.selectAll("circle.proceduralColorCircle").data(points);
 	proceduralColors.join(
       enter => enter.append("circle")
@@ -139,12 +141,14 @@ function updateGraph() {
         .attr("cy", function (d) { return scalePolar(d).y })
         .attr("class", "proceduralColorCircle")
         .attr("r", dotRadius)
-        .style("fill", function (d) {return d.hex()}),
+        .style("fill", function (d) {return d.hex()})
+        .attr("visibility", window.showProceduralColors ? "visible" : "hidden"),
       update => update
         .attr("cx", function (d) { return scalePolar(d).x })
         .attr("cy", function (d) { return scalePolar(d).y })
         .attr("r", dotRadius)
-        .style("fill", function (d) {return d.hex()}),
+        .style("fill", function (d) {return d.hex()})
+        .attr("visibility", window.showProceduralColors ? "visible" : "hidden"),
       exit => exit
         .remove()
     );
@@ -330,8 +334,8 @@ function generateColorRanges(amount, hueRotation, tilt, minLightness, maxLightne
 	return lines;
 }
 
-function calculateColors() {
-	window.colorPoints = [];
+function calculateProceduralColors() {
+	window.proceduralColors = [];
 
 	window.colorRanges = generateColorRanges(
 							window.inputParameters.hueCount, 
@@ -343,7 +347,7 @@ function calculateColors() {
 
 	for (var i = window.colorRanges.length - 1; i >= 0; i--) {
 		let colors = evaluateColorRange(window.colorRanges[i], window.inputParameters.pointsPerLine);
-		window.colorPoints = window.colorPoints.concat(colors);
+		window.proceduralColors = window.proceduralColors.concat(colors);
 	}
 
 	updateGraph();
@@ -403,21 +407,38 @@ function init(){
 		pointToColorConverter: pointToHSLColor,
 	}
 
+	window.showProceduralColors = true;
+	window.showReferenceColors = false;
+
+
 	//window.referenceColors = testReferenceColorsList.map(c => chroma(c));
 	window.referenceColors = [];
 
 	prepareInputs();
-	calculateColors();
+	calculateProceduralColors();
 	initGraph();
 	updateGraph();
-	updateLabels();
+	updateUI();
 }
 
 function prepareInputs () {
+	// Color headings
+	document.getElementById("referenceColor-heading").addEventListener("click", (event) => {
+		window.showReferenceColors = !window.showReferenceColors;
+		calculateProceduralColors();
+		updateUI();
+	});	
+
+	document.getElementById("proceduralColors-heading").addEventListener("click", (event) => {
+		window.showProceduralColors = !window.showProceduralColors;
+		calculateProceduralColors();
+		updateUI();
+	});	
+
 	// Buttons
 
 	document.getElementById("copyColors-button").addEventListener("click", (event) => {
-		copyColorsToClipboard(window.colorPoints);
+		copyColorsToClipboard(window.proceduralColors);
 	});		
 
 	document.getElementById("copyReferenceColors-button").addEventListener("click", (event) => {
@@ -429,7 +450,7 @@ function prepareInputs () {
 	});		
 
 	document.getElementById("saveColors-button").addEventListener("click", (event) => {
-		saveColors(window.colorPoints);
+		saveColors(window.proceduralColors);
 	});			
 
 	document.getElementById("clearSavedColors-button").addEventListener("click", (event) => {
@@ -439,79 +460,81 @@ function prepareInputs () {
 	// Sliders
 	document.getElementById("lowSaturation-input").addEventListener("input", (event) => {
 		window.inputParameters.lowSaturation = Number(event.target.value);
-		calculateColors();
-		updateLabels();
+		calculateProceduralColors();
+		updateUI();
 	});	
 
 	document.getElementById("midSaturation-input").addEventListener("input", (event) => {
 		window.inputParameters.midSaturation = Number(event.target.value);
-		calculateColors();
-		updateLabels();
+		calculateProceduralColors();
+		updateUI();
 	});	
 
 	document.getElementById("highSaturation-input").addEventListener("input", (event) => {
 		window.inputParameters.highSaturation = Number(event.target.value);
-		calculateColors();
-		updateLabels();
+		calculateProceduralColors();
+		updateUI();
 	});	
 
 	document.getElementById("pointsPerLine-input").addEventListener("input", (event) => {
 		window.inputParameters.pointsPerLine = Number(event.target.value);
-		calculateColors();
-		updateLabels();
+		calculateProceduralColors();
+		updateUI();
 	});	
 
 	document.getElementById("hueCount-input").addEventListener("input", (event) => {
 		window.inputParameters.hueCount = Number(event.target.value);
-		calculateColors();
-		updateLabels();
+		calculateProceduralColors();
+		updateUI();
 	});
 
 	document.getElementById("hueTilt-input").addEventListener("input", (event) => {
 		window.inputParameters.hueTilt = Number(event.target.value);
-		calculateColors();
-		updateLabels();
+		calculateProceduralColors();
+		updateUI();
 	});
 
 	document.getElementById("hueOffset-input").addEventListener("input", (event) => {
 		window.inputParameters.hueOffset = Number(event.target.value);
-		calculateColors();
-		updateLabels();
+		calculateProceduralColors();
+		updateUI();
 	});
 
 	document.getElementById("minValue-input").addEventListener("input", (event) => {
 		window.inputParameters.minValue = Number(event.target.value);
-		calculateColors();
-		updateLabels();
+		calculateProceduralColors();
+		updateUI();
 	});
 
 	document.getElementById("maxValue-input").addEventListener("input", (event) => {
 		window.inputParameters.maxValue = Number(event.target.value);
-		calculateColors();
-		updateLabels();
+		calculateProceduralColors();
+		updateUI();
 	});
 
 	// Radio options
 	document.getElementById("hueVsLightness-input").addEventListener("input", (event) => {
 		window.inputParameters.vizMode = "hueVsLightness";
-		calculateColors();
-		updateLabels();
+		calculateProceduralColors();
+		updateUI();
 	});	
 
 	document.getElementById("hueVsSaturation-input").addEventListener("input", (event) => {
 		window.inputParameters.vizMode = "hueVsSaturation";
-		calculateColors();
-		updateLabels();
+		calculateProceduralColors();
+		updateUI();
 	});
 
-	updateLabels();
+	updateUI();
 }
 
 function toPercentage(value) {
 	return Math.round(value * 100) + "%";
 }
 
-function updateLabels() {
+function updateUI() {
+
+	// Controls
 	document.getElementById("lowSaturation-input").value = inputParameters.lowSaturation;
 	document.getElementById("lowSaturation-label").textContent = toPercentage(inputParameters.lowSaturation);
 	document.getElementById("midSaturation-input").value = window.inputParameters.midSaturation;
@@ -530,7 +553,13 @@ function updateLabels() {
 	document.getElementById("minValue-label").textContent = toPercentage(window.inputParameters.minValue);
 	document.getElementById("maxValue-input").value = window.inputParameters.maxValue;
 	document.getElementById("maxValue-label").textContent = toPercentage(window.inputParameters.maxValue);
-	//updateColorList();
+
+	// Labels
+	document.getElementById("referenceColor-heading").style.color = window.showReferenceColors ? "black" : "gray";
+	document.getElementById("savedColorsSVG").style.visibility = window.showReferenceColors ? "visible" : "hidden";
+
+	document.getElementById("proceduralColors-heading").style.color = window.showProceduralColors ? "black" : "gray";
+	document.getElementById("colorGridSVG").style.visibility = window.showProceduralColors ? "visible" : "hidden";
 }
 
 window.onload = init;
