@@ -22,86 +22,95 @@ const testReferenceColorsList = [
 ];
 
 // Declare the chart dimensions and margins.
-const width = 850;
-const height = 800;
 const marginTop = 50;
 const marginRight = 50;
-const marginBottom = 50;
+const marginBottom = 100;
 const marginLeft = 50;
 
-const radius = (height - marginTop - marginBottom) / 2;
-const cx = width / 2;
-const cy = height / 2;
+const graphWidth = () => {
+	return Math.min(document.documentElement.clientWidth - 600, document.documentElement.clientHeight) 
+};
+const graphHeight = () => graphWidth();
+const radius = () => (graphHeight() - marginTop - marginBottom) / 2;
+const cx = () => graphWidth() / 2;
+const cy = () => graphHeight() / 2;
 
-// Declare the x (horizontal position) scale.
-const xScale = d3.scaleLinear()
-    .domain([0, 360])
-    .range([marginLeft, width - marginRight]);
-
-// Declare the y (vertical position) scale.
-const yScale = d3.scaleLinear()
-    .domain([0, 1])
-    .range([height - marginBottom, marginTop]);
-
-const rScale = d3.scaleLinear().domain([0, 1]).range([0, radius]);
+// Declare the radials scale
+let rScale = (t) => t * radius();
 
 function colorToPolarCoords (color) {
 	let hsl = color.hsl();
-	let radialHeight = window.inputParameters.vizMode == 'hueVsLightness' ? hsl[2] : 1 - hsl[1];
+	let radialHeight = window.inputParameters.variableOnRadialAxis == 'lightness' ? hsl[2] : 1 - hsl[1];
 
 	const angleRad = (hsl[0] - 90) * (Math.PI / 180); // rotate so 0° = up
 	let polarPoint = {
-		x: cx + rScale(radialHeight) * Math.cos(angleRad),
-		y: cy + rScale(radialHeight) * Math.sin(angleRad)
+		x: cx() + rScale(radialHeight) * Math.cos(angleRad),
+		y: cy() + rScale(radialHeight) * Math.sin(angleRad)
 	};
 	return polarPoint;
 }
 
-function initGraph() {
-
+function redraw() {
 	// Set the chart size
 	d3.select("#chart1")
-		.attr("width", width)
-	  .attr("height", height);
+		.attr("width", graphWidth())
+	  .attr("height", graphHeight());
 
 	drawGrid(12, "#dddddd", 0.25, 1);
-}
 
-function drawGrid(longitudalLines, color, innerRadius, outerRadius){
-	const grid = d3.select("#chart1").append("g")
-		.attr("class", "axis")
-		.attr("transform", `translate(${cx},${cy})`);
+	drawColorRangeLines("#chart1", window.colorRanges, window.showProceduralColors, "colorRangeLines");
 
-	// Latitudal "circles"
-	grid.selectAll("circle.grid")
-		.data(d3.range(0, outerRadius + 0.01, innerRadius))
-		.join("circle")
-		.attr("r", d => rScale(d))
-		.attr("stroke", color)
-		.attr("fill", "none");
-
-	grid.selectAll("line.angle")
-		.data(d3.range(0, 360, 360 / longitudalLines))
-		.join("line")
-		.attr("x1", d => rScale(innerRadius) * Math.cos((d - 90) * Math.PI / 180))
-		.attr("y1", d => rScale(innerRadius) * Math.sin((d - 90) * Math.PI / 180))
-		.attr("x2", d => rScale(outerRadius) * Math.cos((d - 90) * Math.PI / 180))
-		.attr("y2", d => rScale(outerRadius) * Math.sin((d - 90) * Math.PI / 180))
-		.attr("stroke", color);
-}
-
-function redraw() {
-	// Draw test colors
 	drawColorPoints("#chart1", window.proceduralColors, "circle", "proceduralColorCircle", window.showProceduralColors, 15);	
 	drawColorPoints("#chart1", window.testColors, "rect", "testColors", window.showColorspaceTestColors, 20);	
 	drawColorPoints("#chart1", window.referenceColors, "rect", "referenceColors", window.showReferenceColors, 10);	
 
-	// Draw color range line
-	drawColorRangeLines("#chart1", window.colorRanges, true, "colorRangeLines");
-
-	// Draw color grids
 	drawColorGridSVG(window.proceduralColors, window.inputParameters.pointsPerLine, "#colorGridSVG");
 	drawColorGridSVG(window.referenceColors, window.inputParameters.pointsPerLine, "#savedColorsSVG");
+}
+
+function drawGrid(longitudalLines, color, innerRadius, outerRadius){
+	const grid = d3.select("#chart1").selectAll("g.axis").data([null]);// bind a single dummy element
+
+	const gridEnter = grid.enter()
+		.append("g")
+		.attr("class", "axis");
+
+	const gridMerged = gridEnter.merge(grid)
+		.attr("transform", `translate(${cx()}, ${cy()})`);
+	
+	// Latitudal "circles"
+	const latitudalGridLines = gridMerged.selectAll("circle.latitudalGridLine")
+		.data(d3.range(0, outerRadius + 0.01, innerRadius));		
+	latitudalGridLines.join(
+		enter => enter.append("circle")
+			.attr("class", "latitudalGridLine")
+			.attr("r", d => rScale(d))
+			.attr("stroke", color)
+			.attr("fill", "none"),
+		update => update
+			.attr("r", d => rScale(d)),
+		exit => exit.remove()
+	);
+
+	// Longitudal lines
+	const longitudalGridLines = gridMerged.selectAll("line.longitudalGridLine")
+		.data(d3.range(0, 360, 360 / longitudalLines));		
+	longitudalGridLines.join(
+		enter => enter.append("line")
+			.attr("class", "longitudalGridLine")
+			.attr("stroke", color)
+			.attr("x1", d => rScale(innerRadius) * Math.cos((d - 90) * Math.PI / 180))
+			.attr("y1", d => rScale(innerRadius) * Math.sin((d - 90) * Math.PI / 180))
+			.attr("x2", d => rScale(outerRadius) * Math.cos((d - 90) * Math.PI / 180))
+			.attr("y2", d => rScale(outerRadius) * Math.sin((d - 90) * Math.PI / 180))
+			.attr("fill", "none"),
+		update => update
+			.attr("x1", d => rScale(innerRadius) * Math.cos((d - 90) * Math.PI / 180))
+			.attr("y1", d => rScale(innerRadius) * Math.sin((d - 90) * Math.PI / 180))
+			.attr("x2", d => rScale(outerRadius) * Math.cos((d - 90) * Math.PI / 180))
+			.attr("y2", d => rScale(outerRadius) * Math.sin((d - 90) * Math.PI / 180)),
+		exit => exit.remove()
+	);
 }
 
 function drawColorPoints(svgElement, data, elementType, className, visibility, pointSize){
@@ -436,7 +445,7 @@ async function setClipboard(text) {
 
 function init(){
 	window.inputParameters = {
-		vizMode: "hueVsLightness",
+		variableOnRadialAxis: "lightness",
 		pointsPerLine: 4,
 		hueCount: 2,
 		hueTilt: -10, 
@@ -460,128 +469,120 @@ function init(){
 	//window.referenceColors = testReferenceColorsList.map(c => chroma(c));
 	window.referenceColors = [];
 
-	prepareInputs();
-	initGraph();
+	addEventListeners();
 	update();
 }
 
-function prepareInputs () {
+function addEventListeners () {
+	onresize = (event) => {
+		update();
+	}
+
 	// Color headings
 	document.getElementById("referenceColor-heading").addEventListener("click", (event) => {
 		window.showReferenceColors = !window.showReferenceColors;
-		updateColorDisplay();
-		updateUI();
+		update();
 	});	
 
 	document.getElementById("proceduralColors-heading").addEventListener("click", (event) => {
 		window.showProceduralColors = !window.showProceduralColors;
-		updateColorDisplay();
-		updateUI();
+		console.log("hej")
+		update();
 	});	
 
 	document.getElementById("colorspaceTestColors-heading").addEventListener("click", (event) => {
 		window.showColorspaceTestColors = !window.showColorspaceTestColors;
-		updateColorDisplay();
-		updateUI();
+		update();
 	});	
 
 	document.getElementById("settings-heading").addEventListener("click", (event) => {
 		window.showSettings = !window.showSettings;
-		updateColorDisplay();
-		updateUI();
+		update();
 	});	
 
 	// Buttons
 
 	document.getElementById("copyColors-button").addEventListener("click", (event) => {
 		copyColorsToClipboard(window.proceduralColors);
+		update();
 	});		
 
 	document.getElementById("copyReferenceColors-button").addEventListener("click", (event) => {
 		copyColorsToClipboard(window.referenceColors);
+		update();
 	});		
 
 	document.getElementById("pasteColors-button").addEventListener("click", (event) => {
 		pasteColors();
+		update();
 	});		
 
 	document.getElementById("saveColors-button").addEventListener("click", (event) => {
 		saveColors(window.proceduralColors);
+		update();
 	});			
 
 	document.getElementById("clearSavedColors-button").addEventListener("click", (event) => {
 		clearSavedColors();
+		update();
 	});		
 
 	// Sliders
 	document.getElementById("lowSaturation-input").addEventListener("input", (event) => {
 		window.inputParameters.lowSaturation = Number(event.target.value);
-		updateColorDisplay();
-		updateUI();
+		update();
 	});	
 
 	document.getElementById("midSaturation-input").addEventListener("input", (event) => {
 		window.inputParameters.midSaturation = Number(event.target.value);
-		updateColorDisplay();
-		updateUI();
+		update();
 	});	
 
 	document.getElementById("highSaturation-input").addEventListener("input", (event) => {
 		window.inputParameters.highSaturation = Number(event.target.value);
-		updateColorDisplay();
-		updateUI();
+		update();
 	});	
 
 	document.getElementById("pointsPerLine-input").addEventListener("input", (event) => {
 		window.inputParameters.pointsPerLine = Number(event.target.value);
-		updateColorDisplay();
-		updateUI();
+		update();
 	});	
 
 	document.getElementById("hueCount-input").addEventListener("input", (event) => {
 		window.inputParameters.hueCount = Number(event.target.value);
-		updateColorDisplay();
-		updateUI();
+		update();
 	});
 
 	document.getElementById("hueTilt-input").addEventListener("input", (event) => {
 		window.inputParameters.hueTilt = Number(event.target.value);
-		updateColorDisplay();
-		updateUI();
+		update();
 	});
 
 	document.getElementById("hueOffset-input").addEventListener("input", (event) => {
 		window.inputParameters.hueOffset = Number(event.target.value);
-		updateColorDisplay();
-		updateUI();
+		update();
 	});
 
 	document.getElementById("minValue-input").addEventListener("input", (event) => {
 		window.inputParameters.minValue = Number(event.target.value);
-		updateColorDisplay();
-		updateUI();
+		update();
 	});
 
 	document.getElementById("maxValue-input").addEventListener("input", (event) => {
 		window.inputParameters.maxValue = Number(event.target.value);
-		updateColorDisplay();
-		updateUI();
+		update();
 	});
 
 	// Radio options
 	document.getElementById("hueVsLightness-input").addEventListener("input", (event) => {
-		window.inputParameters.vizMode = "hueVsLightness";
-		updateColorDisplay();
-		updateUI();
+		window.inputParameters.variableOnRadialAxis = "lightness";
+		update();
 	});	
 
 	document.getElementById("hueVsSaturation-input").addEventListener("input", (event) => {
-		window.inputParameters.vizMode = "hueVsSaturation";
-		updateColorDisplay();
-		updateUI();
+		window.inputParameters.variableOnRadialAxis = "saturation";
+		update();
 	});
-
-	updateUI();
 }
 
 function toPercentage(value) {
