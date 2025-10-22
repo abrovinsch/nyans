@@ -28,7 +28,6 @@ const marginTop = 50;
 const marginRight = 50;
 const marginBottom = 50;
 const marginLeft = 50;
-const dotRadius = 15;
 
 const radius = (height - marginTop - marginBottom) / 2;
 const cx = width / 2;
@@ -46,160 +45,149 @@ const yScale = d3.scaleLinear()
 
 const rScale = d3.scaleLinear().domain([0, 1]).range([0, radius]);
 
-function scalePolar (color) {
+function colorToPolarCoords (color) {
 	let hsl = color.hsl();
-	let point = {
-		x: hsl[0],
-		y: hsl[1],
-		z: hsl[2]
-	}
+	let radialHeight = window.inputParameters.vizMode == 'hueVsLightness' ? hsl[2] : 1 - hsl[1];
 
-	let yVariable = window.inputParameters.vizMode == 'hueVsLightness' ? point.z : 1 - point.y;
-
-    const angleRad = (point.x - 90) * (Math.PI / 180); // rotate so 0° = up
-    let polarPoint = {
-      x: cx + rScale(yVariable) * Math.cos(angleRad),
-      y: cy + rScale(yVariable) * Math.sin(angleRad)
-    };
-    return polarPoint;
-  }
+	const angleRad = (hsl[0] - 90) * (Math.PI / 180); // rotate so 0° = up
+	let polarPoint = {
+		x: cx + rScale(radialHeight) * Math.cos(angleRad),
+		y: cy + rScale(radialHeight) * Math.sin(angleRad)
+	};
+	return polarPoint;
+}
 
 function initGraph() {
 
-	// Select the SVG container.
-	const svg = d3.select("#chart1");
+	// Set the chart size
+	d3.select("#chart1")
+		.attr("width", width)
+	  .attr("height", height);
 
-	svg.attr("width", width)
-	    .attr("height", height);
+	drawGrid(12, "#dddddd", 0.25, 1);
+}
 
-	const grid = svg.append("g")
-	    .attr("class", "axis")
-	    .attr("transform", `translate(${cx},${cy})`);
+function drawGrid(longitudalLines, color, innerRadius, outerRadius){
+	const grid = d3.select("#chart1").append("g")
+		.attr("class", "axis")
+		.attr("transform", `translate(${cx},${cy})`);
 
-	let gridColor = chroma.hsl(0,0,0.9);
-
+	// Latitudal "circles"
 	grid.selectAll("circle.grid")
-		.data(d3.range(0, 1.01, 0.25))
+		.data(d3.range(0, outerRadius + 0.01, innerRadius))
 		.join("circle")
 		.attr("r", d => rScale(d))
-		.attr("stroke", gridColor)
+		.attr("stroke", color)
 		.attr("fill", "none");
 
 	grid.selectAll("line.angle")
-		  .data(d3.range(0, 360, 30))
-		  .join("line")
-		  .attr("x1", d => rScale(0.25) * Math.cos((d - 90) * Math.PI / 180))
-		  .attr("y1", d => rScale(0.25) * Math.sin((d - 90) * Math.PI / 180))
-		  .attr("x2", d => rScale(1) * Math.cos((d - 90) * Math.PI / 180))
-		  .attr("y2", d => rScale(1) * Math.sin((d - 90) * Math.PI / 180))
-		  .attr("stroke", gridColor);
+		.data(d3.range(0, 360, 360 / longitudalLines))
+		.join("line")
+		.attr("x1", d => rScale(innerRadius) * Math.cos((d - 90) * Math.PI / 180))
+		.attr("y1", d => rScale(innerRadius) * Math.sin((d - 90) * Math.PI / 180))
+		.attr("x2", d => rScale(outerRadius) * Math.cos((d - 90) * Math.PI / 180))
+		.attr("y2", d => rScale(outerRadius) * Math.sin((d - 90) * Math.PI / 180))
+		.attr("stroke", color);
 }
 
-function updateGraph() {
-	let points = window.proceduralColors;
-	let guideCurves = [];
-	for (var i = 0; i < window.colorRanges.length; i++) {
-		guideCurves.push(
-			evaluateColorRange(window.colorRanges[i], 40)
-		);
-	}
+function redraw() {
+	// Draw test colors
+	drawColorPoints("#chart1", window.proceduralColors, "circle", "proceduralColorCircle", window.showProceduralColors, 15);	
+	drawColorPoints("#chart1", window.testColors, "rect", "testColors", window.showColorspaceTestColors, 20);	
+	drawColorPoints("#chart1", window.referenceColors, "rect", "referenceColors", window.showReferenceColors, 10);	
 
-	const svg = d3.select("#chart1");
-
-	// Draw procedural guide curves
-	const line = d3.line()
-        .x(function(d) { 
-        	return scalePolar(d).x 
-        }) 
-        .y(function(d) { 
-        	return scalePolar(d).y 
-        }) 
-        .curve(d3.curveMonotoneX);
-
-    let guideCurveColor= chroma.hsl(0,0,0.3);
-	const guideCurvePaths = svg.selectAll("path.guideCurves").data(guideCurves);
-	guideCurvePaths.join(
-      enter => enter.append("path")
-      	.attr("class","guideCurves")
-		.attr("stroke", guideCurveColor)
-		.attr("stroke-width", 0.2)
-		.attr("fill", "none")
-		.attr("visibility", window.showProceduralColors ? "visible" : "hidden")
-		.attr("d", line),
-      update => update
-		.attr("d", line)
-		.attr("visibility", window.showProceduralColors ? "visible" : "hidden"),
-      exit => exit
-        .remove()
-    );
-
-	// Draw procedural colors 
-	const proceduralColors = svg.selectAll("circle.proceduralColorCircle").data(points);
-	proceduralColors.join(
-      enter => enter.append("circle")
-        .attr("cx", function (d) { return scalePolar(d).x })
-        .attr("cy", function (d) { return scalePolar(d).y })
-        .attr("class", "proceduralColorCircle")
-        .attr("r", dotRadius)
-        .style("fill", function (d) {return d.hex()})
-        .attr("visibility", window.showProceduralColors ? "visible" : "hidden"),
-      update => update
-        .attr("cx", function (d) { return scalePolar(d).x })
-        .attr("cy", function (d) { return scalePolar(d).y })
-        .attr("r", dotRadius)
-        .style("fill", function (d) {return d.hex()})
-        .attr("visibility", window.showProceduralColors ? "visible" : "hidden"),
-      exit => exit
-        .remove()
-    );
-
-    // Draw reference colors
-    const referenceColors = svg.selectAll("rect.referenceColors").data(window.referenceColors);
-   	referenceSquareSide = 20;
-	referenceColors.join(
-      enter => enter.append("rect")
-        .attr("x", function (d) { return scalePolar(d).x - referenceSquareSide / 2})
-        .attr("y", function (d) { return scalePolar(d).y - referenceSquareSide / 2})
-        .attr("class", "referenceColors")
-        .attr("width", referenceSquareSide)
-        .attr("height", referenceSquareSide)
-        .attr("visibility", window.showReferenceColors ? "visible" : "hidden")
-        .style("fill", function (d) {return d.hex()}),
-      update => update
-        .attr("x", function (d) { return scalePolar(d).x - referenceSquareSide / 2})
-        .attr("y", function (d) { return scalePolar(d).y - referenceSquareSide / 2})
-        .attr("width", referenceSquareSide)
-        .attr("height", referenceSquareSide)
-        .attr("visibility", window.showReferenceColors ? "visible" : "hidden")
-        .style("fill", function (d) {return d.hex()}),
-      exit => exit
-        .remove()
-    );
-
-    // Draw test colors
-    const testColorCircles = svg.selectAll("circle.testColors").data(window.testColors);
-   	let testColorRadius = 20;
-	testColorCircles.join(
-      enter => enter.append("circle")
-        .attr("cx", function (d) { return scalePolar(d).x })
-        .attr("cy", function (d) { return scalePolar(d).y })
-        .attr("class", "testColors")
-        .attr("r", testColorRadius)
-        .style("fill", function (d) {return d.hex()})
-        .attr("visibility", window.showColorspaceTestColors ? "visible" : "hidden"),
-      update => update
-        .attr("cx", function (d) { return scalePolar(d).x })
-        .attr("cy", function (d) { return scalePolar(d).y })
-        .attr("r", testColorRadius)
-        .style("fill", function (d) {return d.hex()})
-        .attr("visibility", window.showColorspaceTestColors ? "visible" : "hidden"),
-      exit => exit
-        .remove()
-    );
+	// Draw color range line
+	drawColorRangeLines("#chart1", window.colorRanges, true, "colorRangeLines");
 
 	// Draw color grids
-    drawColorGridSVG(points, window.inputParameters.pointsPerLine, "#colorGridSVG");
-    drawColorGridSVG(window.referenceColors, window.inputParameters.pointsPerLine, "#savedColorsSVG");
+	drawColorGridSVG(window.proceduralColors, window.inputParameters.pointsPerLine, "#colorGridSVG");
+	drawColorGridSVG(window.referenceColors, window.inputParameters.pointsPerLine, "#savedColorsSVG");
+}
+
+function drawColorPoints(svgElement, data, elementType, className, visibility, pointSize){
+	const elements = d3.select(svgElement).selectAll(`${elementType}.${className}`).data(data);
+	const visibilityAttr = visibility ? "visible" : "hidden";
+	const colorFunc = (d) => d.hex();
+
+	if(elementType === "circle") {
+		const x_func = (d) => {return colorToPolarCoords(d).x};
+		const y_func = (d) => {return colorToPolarCoords(d).y};
+
+		elements.join(
+			enter => enter.append("circle")
+				.attr("cx", x_func)
+				.attr("cy", y_func)
+				.attr("class", className)
+				.attr("r", pointSize)
+				.style("fill", colorFunc)
+				.attr("visibility", visibilityAttr),
+			update => update
+				.attr("cx", x_func)
+				.attr("cy", y_func)
+				.attr("r", pointSize)
+				.style("fill", colorFunc)
+				.attr("visibility", visibilityAttr),
+			exit => exit
+				.remove()
+		);
+	} else if (elementType === "rect"){
+
+		const x_func = (d) => {return colorToPolarCoords(d).x - pointSize / 2};
+		const y_func = (d) => {return colorToPolarCoords(d).y - pointSize / 2};
+
+		elements.join(
+			enter => enter.append("rect")
+				.attr("x", x_func)
+				.attr("y", y_func)
+				.attr("class", className)
+				.attr("width", pointSize)
+				.attr("height", pointSize)
+				.attr("visibility", visibilityAttr)
+				.style("fill", colorFunc),
+			update => update
+				.attr("x", x_func)
+				.attr("y", y_func)
+				.attr("width", pointSize)
+				.attr("height", pointSize)
+				.attr("visibility", visibilityAttr)
+				.style("fill", colorFunc),
+			exit => exit
+				.remove()
+		);
+	}
+}
+
+function drawColorRangeLines(svgElement, ranges, visibility, className) {
+
+	let polyLines = [];
+	for (var i = 0; i < ranges.length; i++) {
+		polyLines.push(evaluateColorRange(ranges[i], 40));
+	}
+
+	const lineFunc = d3.line()
+		.x((d) => { return colorToPolarCoords(d).x }) 
+		.y((d) => { return colorToPolarCoords(d).y }) 
+		.curve(d3.curveMonotoneX);
+
+	const color = "gray"
+	const strokeWidth = 0.3;
+	const visibilityAttr = visibility ? "visible" : "hidden"; 
+
+	const paths = d3.select(svgElement).selectAll(`path.${className}`).data(polyLines);
+	paths.join(
+  	enter => enter.append("path")
+    	.attr("class",className)
+			.attr("stroke", color)
+			.attr("stroke-width", strokeWidth)
+			.attr("fill", "none")
+			.attr("visibility", visibilityAttr)
+			.attr("d", lineFunc),
+		update => update
+			.attr("d", lineFunc)
+			.attr("visibility", visibilityAttr),
+		exit => exit
+			.remove()
+    );
 }
 
 function drawColorGridSVG(colors, columns, id) {
@@ -395,22 +383,28 @@ function calculateProceduralColors() {
 	}
 }
 
+function update() {
+	calculateProceduralColors();
+	calculateTestColors();
+	updateUI();
+	redraw();
+}
+
 function updateColorDisplay() {
 	calculateProceduralColors();
 	calculateTestColors();
 	updateUI();
-	updateGraph();
+	redraw();
 }
 
 function saveColors(colors) {
 	window.referenceColors = window.referenceColors.concat(colors);
-	updateGraph();
+	redraw();
 }
 
 function clearSavedColors() {
 	window.referenceColors = [];
-	updateColorDisplay();
-	updateUI();
+	update();
 }
 
 function copyColorsToClipboard(colors) {
@@ -468,9 +462,7 @@ function init(){
 
 	prepareInputs();
 	initGraph();
-	updateColorDisplay();
-	updateGraph();
-	updateUI();
+	update();
 }
 
 function prepareInputs () {
