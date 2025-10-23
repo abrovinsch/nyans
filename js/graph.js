@@ -22,25 +22,26 @@ const testReferenceColorsList = [
 ];
 
 // Declare the chart dimensions and margins.
-const marginTop = 50;
-const marginRight = 50;
+const marginTop = 5;
+const marginRight = 5;
 const marginBottom = 100;
-const marginLeft = 50;
+const marginLeft = 5;
 
 const graphWidth = () => {
-	return Math.min(document.documentElement.clientWidth - 600, document.documentElement.clientHeight) 
+	let viewPortHeight = Math.min(document.documentElement.clientHeight || 0, window.innerHeight || 0);
+	return Math.min(document.documentElement.clientWidth - 600, viewPortHeight);
 };
 const graphHeight = () => graphWidth();
 const radius = () => (graphHeight() - marginTop - marginBottom) / 2;
 const cx = () => graphWidth() / 2;
-const cy = () => graphHeight() / 2;
+const cy = () => marginTop + ((graphHeight() - marginTop - marginBottom) / 2);
 
 // Declare the radials scale
 let rScale = (t) => t * radius();
 
 function colorToPolarCoords (color) {
 	let hsl = color.hsl();
-	let radialHeight = window.inputParameters.variableOnRadialAxis == 'lightness' ? hsl[2] : 1 - hsl[1];
+	let radialHeight = window.inputParameters.variableOnRadialAxis == 'Lightness' ? hsl[2] : 1 - hsl[1];
 
 	const angleRad = (hsl[0] - 90) * (Math.PI / 180); // rotate so 0° = up
 	let polarPoint = {
@@ -64,8 +65,8 @@ function redraw() {
 	drawColorPoints("#chart1", window.testColors, "rect", "testColors", window.showColorspaceTestColors, 20);	
 	drawColorPoints("#chart1", window.referenceColors, "rect", "referenceColors", window.showReferenceColors, 10);	
 
-	drawColorGridSVG(window.proceduralColors, window.inputParameters.pointsPerLine, "#colorGridSVG");
-	drawColorGridSVG(window.referenceColors, window.inputParameters.pointsPerLine, "#savedColorsSVG");
+	drawColorGridSVG(window.proceduralColors, window.inputParameters.pointsPerLine, "#procedural-colors-grid");
+	drawColorGridSVG(window.referenceColors, window.inputParameters.pointsPerLine, "#reference-colors-grid");
 }
 
 function drawGrid(longitudalLines, color, innerRadius, outerRadius){
@@ -200,10 +201,8 @@ function drawColorRangeLines(svgElement, ranges, visibility, className) {
 }
 
 function drawColorGridSVG(colors, columns, id) {
-  if(colors.length == 0) return;
-
   const svg = d3.select(id);
-  const totalWidth = 200;
+  const totalWidth = 280;
   const padding = 1;
   const cellHeight = 30;
   const yPadding = 6;
@@ -399,13 +398,6 @@ function update() {
 	redraw();
 }
 
-function updateColorDisplay() {
-	calculateProceduralColors();
-	calculateTestColors();
-	updateUI();
-	redraw();
-}
-
 function saveColors(colors) {
 	window.referenceColors = window.referenceColors.concat(colors);
 	redraw();
@@ -419,11 +411,10 @@ function clearSavedColors() {
 function copyColorsToClipboard(colors) {
 	let hexCodes = colors.map(c => c.hex());
 	let text = hexCodes.join("\n");
-	setClipboard(text);
+	setClipboardToText(text);
 }
 
 async function pasteColors() {
-	
 	await navigator.clipboard.readText().then(t => {
 		console.log(t);
 		let lines = t.split("\n");
@@ -433,19 +424,9 @@ async function pasteColors() {
 	});
 }
 
-
-async function setClipboard(text) {
-  const type = "text/plain";
-  const clipboardItemData = {
-    [type]: text,
-  };
-  const clipboardItem = new ClipboardItem(clipboardItemData);
-  await navigator.clipboard.write([clipboardItem]);
-}
-
 function init(){
 	window.inputParameters = {
-		variableOnRadialAxis: "lightness",
+		variableOnRadialAxis: "Lightness",
 		pointsPerLine: 4,
 		hueCount: 2,
 		hueTilt: -10, 
@@ -456,175 +437,252 @@ function init(){
 		lowSaturation: 0.12,
 		midSaturation: 0.3,
 		highSaturation: 0.5,
+		colorSpace: "HSL",
 
 		pointToColorConverter: pointToHSLColor,
 	}
-
 	window.showColorspaceTestColors = false;
 	window.showProceduralColors = true;
 	window.showReferenceColors = false;
 	window.showSettings = false;
-
-
 	//window.referenceColors = testReferenceColorsList.map(c => chroma(c));
 	window.referenceColors = [];
 
-	addEventListeners();
+	createUIElements();
+	onUIChange = update;
 	update();
 }
 
-function addEventListeners () {
-	onresize = (event) => {
-		update();
-	}
+function createUIElements() {
+	window.updateRoutines = [];
 
-	// Color headings
-	document.getElementById("referenceColor-heading").addEventListener("click", (event) => {
-		window.showReferenceColors = !window.showReferenceColors;
-		update();
-	});	
+	// Settings
+	createCollapsableSection(
+		"settings", 
+		"left-panel", 
+		"Settings", 
+		onInput = () => {window.showSettings = !window.showSettings},
+		openBind = () => window.showSettings
+	);
+	createRadioInput(
+		idText = "radial-axis-input", 
+		parentId = "settings", 
+		options = ["Lightness","Saturation"], 
+		titleText = "Secondary axis", 
+		onInput = (value) => {window.inputParameters.variableOnRadialAxis = value}, 
+		valueBind = () => window.inputParameters.variableOnRadialAxis
+	);
 
-	document.getElementById("proceduralColors-heading").addEventListener("click", (event) => {
-		window.showProceduralColors = !window.showProceduralColors;
-		console.log("hej")
-		update();
-	});	
+	// Color space
+	createControlGroup("color-space-controls", "settings", "Color space");
 
-	document.getElementById("colorspaceTestColors-heading").addEventListener("click", (event) => {
-		window.showColorspaceTestColors = !window.showColorspaceTestColors;
-		update();
-	});	
+	createParagraph("colorspace-paragraph","color-space-controls", "-", valueBind = () => window.inputParameters.colorSpace)
 
-	document.getElementById("settings-heading").addEventListener("click", (event) => {
-		window.showSettings = !window.showSettings;
-		update();
-	});	
+	createCheckbox(
+		idText = "colorspace-checkbox", 
+		parentId = "color-space-controls", 
+		titleText = "Show colorspace", 
+		onInput = (value) => {window.showColorspaceTestColors = value; console.log(value)}, 
+		valueBind = () => window.showColorspaceTestColors
+	);
 
-	// Buttons
+	// Procedural colors
+	createCollapsableSection(
+		"procedural-colors", 
+		"left-panel", 
+		"New colors", 
+		onInput = () => {window.showProceduralColors = !window.showProceduralColors},
+		openBind = () => window.showProceduralColors
+	);
 
-	document.getElementById("copyColors-button").addEventListener("click", (event) => {
-		copyColorsToClipboard(window.proceduralColors);
-		update();
-	});		
+	const grid1 = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+	grid1.id = "procedural-colors-grid"
+	document.getElementById("procedural-colors").append(grid1);
 
-	document.getElementById("copyReferenceColors-button").addEventListener("click", (event) => {
-		copyColorsToClipboard(window.referenceColors);
-		update();
-	});		
-
-	document.getElementById("pasteColors-button").addEventListener("click", (event) => {
-		pasteColors();
-		update();
-	});		
-
-	document.getElementById("saveColors-button").addEventListener("click", (event) => {
-		saveColors(window.proceduralColors);
-		update();
-	});			
-
-	document.getElementById("clearSavedColors-button").addEventListener("click", (event) => {
-		clearSavedColors();
-		update();
-	});		
-
-	// Sliders
-	document.getElementById("lowSaturation-input").addEventListener("input", (event) => {
-		window.inputParameters.lowSaturation = Number(event.target.value);
-		update();
-	});	
-
-	document.getElementById("midSaturation-input").addEventListener("input", (event) => {
-		window.inputParameters.midSaturation = Number(event.target.value);
-		update();
-	});	
-
-	document.getElementById("highSaturation-input").addEventListener("input", (event) => {
-		window.inputParameters.highSaturation = Number(event.target.value);
-		update();
-	});	
-
-	document.getElementById("pointsPerLine-input").addEventListener("input", (event) => {
-		window.inputParameters.pointsPerLine = Number(event.target.value);
-		update();
-	});	
-
-	document.getElementById("hueCount-input").addEventListener("input", (event) => {
-		window.inputParameters.hueCount = Number(event.target.value);
-		update();
+	createButton(
+		idText = "save-btn", 
+		parentId = "procedural-colors", 
+		titleText = "Save", 
+		onInput = () => {
+			saveColors(window.proceduralColors);
+			update();
 	});
 
-	document.getElementById("hueTilt-input").addEventListener("input", (event) => {
-		window.inputParameters.hueTilt = Number(event.target.value);
-		update();
+	createButton(
+		idText = "copy-procedural-btn", 
+		parentId = "procedural-colors", 
+		titleText = "Copy", 
+		onInput = () => {
+			copyColorsToClipboard(window.proceduralColors);
+			update();
 	});
 
-	document.getElementById("hueOffset-input").addEventListener("input", (event) => {
-		window.inputParameters.hueOffset = Number(event.target.value);
-		update();
+	// Reference colors
+	createCollapsableSection(
+		"reference-colors", 
+		"left-panel", 
+		"Saved colors", 
+		onInput = () => {window.showReferenceColors = !window.showReferenceColors},
+		openBind = () => window.showReferenceColors
+	);
+	
+	const grid2 = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+	grid2.id = "reference-colors-grid";
+	document.getElementById("reference-colors").append(grid2);
+
+	createButton(
+		idText = "paste-reference-btn", 
+		parentId = "reference-colors", 
+		titleText = "Copy", 
+		onInput = () => {
+			copyColorsToClipboard(window.proceduralColors);
+			update();
 	});
 
-	document.getElementById("minValue-input").addEventListener("input", (event) => {
-		window.inputParameters.minValue = Number(event.target.value);
-		update();
+	createButton(
+		idText = "copy-reference-btn", 
+		parentId = "reference-colors", 
+		titleText = "Paste", 
+		onInput = () => {
+			pasteColors();
+			update();
 	});
 
-	document.getElementById("maxValue-input").addEventListener("input", (event) => {
-		window.inputParameters.maxValue = Number(event.target.value);
-		update();
+	createButton(
+		idText = "clear-reference-btn", 
+		parentId = "reference-colors", 
+		titleText = "Clear", 
+		onInput = () => {
+			clearSavedColors();
+			update();
 	});
 
-	// Radio options
-	document.getElementById("hueVsLightness-input").addEventListener("input", (event) => {
-		window.inputParameters.variableOnRadialAxis = "lightness";
-		update();
-	});	
+	// RIGHT SIDE
 
-	document.getElementById("hueVsSaturation-input").addEventListener("input", (event) => {
-		window.inputParameters.variableOnRadialAxis = "saturation";
-		update();
-	});
+	// Color Group
+	createControlGroup("color-groups-controls", "right-panel", "Color groups");
+		createSliderElement(
+			idText = "color-groups", 
+			parentId = "color-groups-controls", 
+			titleText = "Number of hue groups", 
+			min = 0, 
+			max = 20, 
+			step = 1,
+			onInput = (value) => {window.inputParameters.hueCount = Number(value)},
+			valueBind = () => window.inputParameters.hueCount
+	);	
+
+	createSliderElement(
+		idText = "colors-per-group", 
+		parentId = "color-groups-controls", 
+		titleText = "Colors per group", 
+		min = 0, 
+		max = 24, 
+		step = 1,
+		onInput = (value) => {window.inputParameters.pointsPerLine = Number(value)},
+		valueBind = () => window.inputParameters.pointsPerLine
+	);
+
+	// Hue
+	createControlGroup("hue-controls", "right-panel", "Hue");
+	createSliderElement(
+		idText = "hue-increment", 
+		parentId = "hue-controls", 
+		titleText = "Increment", 
+		min = -180, 
+		max = 180, 
+		step = 1,
+		onInput = (value) => {window.inputParameters.hueTilt = Number(value)},
+		valueBind = () => window.inputParameters.hueTilt, 
+		toDegree
+	);
+
+	createSliderElement(
+		idText = "hue-offset", 
+		parentId = "hue-controls", 
+		titleText = "Offset", 
+		min = -180, 
+		max = 180, 
+		step = 1,
+		onInput = (value) => {window.inputParameters.hueOffset = Number(value)},
+		valueBind = () => window.inputParameters.hueOffset, 
+		toDegree
+	);	
+
+	// Saturation
+	createControlGroup("saturation-controls", "right-panel", "Saturation");
+	createSliderElement(
+		idText = "dark-saturation", 
+		parentId = "saturation-controls", 
+		titleText = "Dark", 
+		min = 0.01, 
+		max = 1, 
+		step = 0.01,
+		onInput = (value) => {window.inputParameters.lowSaturation = Number(value)},
+		valueBind = () => window.inputParameters.lowSaturation,
+		formatLabel = toPercentage
+	);	
+
+	createSliderElement(
+		idText = "mid-saturation", 
+		parentId = "saturation-controls", 
+		titleText = "Mid", 
+		min = 0.01, 
+		max = 1, 
+		step = 0.01,
+		onInput = (value) => {window.inputParameters.midSaturation = Number(value)},
+		valueBind = () => window.inputParameters.midSaturation,
+		formatLabel = toPercentage
+	);	
+	createSliderElement(
+		idText = "high-saturation", 
+		parentId = "saturation-controls", 
+		titleText = "Lights", 
+		min = 0.01, 
+		max = 1, 
+		step = 0.01,
+		onInput = (value) => {window.inputParameters.highSaturation = Number(value)},
+		valueBind = () => window.inputParameters.highSaturation,
+		formatLabel = toPercentage
+	);
+	
+	// Value
+	createControlGroup("brightness-controls", "right-panel", "Brightness");
+	createSliderElement(
+		idText = "darkest-value", 
+		parentId = "brightness-controls", 
+		titleText = "Darkest value", 
+		min = 0.01, 
+		max = 1, 
+		step = 0.01,
+		onInput = (value) => {window.inputParameters.minValue = Number(value)},
+		valueBind = () => window.inputParameters.minValue,
+		formatLabel = toPercentage
+	);
+
+	createSliderElement(
+		idText = "brightest-value", 
+		parentId = "brightness-controls", 
+		titleText = "Brightest value", 
+		min = 0.01, 
+		max = 1, 
+		step = 0.01,
+		onInput = (value) => {window.inputParameters.maxValue = Number(value)},
+		valueBind = () => window.inputParameters.maxValue,
+		formatLabel = toPercentage
+	);
 }
 
 function toPercentage(value) {
 	return Math.round(value * 100) + "%";
 }
 
-function updateUI() {
-
-	// Controls
-	document.getElementById("lowSaturation-input").value = inputParameters.lowSaturation;
-	document.getElementById("lowSaturation-label").textContent = toPercentage(inputParameters.lowSaturation);
-	document.getElementById("midSaturation-input").value = window.inputParameters.midSaturation;
-	document.getElementById("midSaturation-label").textContent = toPercentage(window.inputParameters.midSaturation);
-	document.getElementById("highSaturation-input").value = window.inputParameters.highSaturation;
-	document.getElementById("highSaturation-label").textContent = toPercentage(window.inputParameters.highSaturation);
-	document.getElementById("pointsPerLine-input").value = window.inputParameters.pointsPerLine;
-	document.getElementById("pointsPerLine-label").textContent = window.inputParameters.pointsPerLine;
-	document.getElementById("hueCount-input").value = window.inputParameters.hueCount;
-	document.getElementById("hueCount-label").textContent = window.inputParameters.hueCount;
-	document.getElementById("hueTilt-input").value = window.inputParameters.hueTilt;
-	document.getElementById("hueTilt-label").textContent = window.inputParameters.hueTilt  + "°";
-	document.getElementById("hueOffset-input").value = window.inputParameters.hueOffset;
-	document.getElementById("hueOffset-label").textContent = window.inputParameters.hueOffset + "°";
-	document.getElementById("minValue-input").value = window.inputParameters.minValue;
-	document.getElementById("minValue-label").textContent = toPercentage(window.inputParameters.minValue);
-	document.getElementById("maxValue-input").value = window.inputParameters.maxValue;
-	document.getElementById("maxValue-label").textContent = toPercentage(window.inputParameters.maxValue);
-
-	// Labels
-	document.getElementById("settings-heading").style.color = window.showSettings ? "black" : "gray";
-	document.getElementById("settings-items").style.display = window.showSettings ? "block" : "none";
-
-	document.getElementById("referenceColor-heading").style.color = window.showReferenceColors ? "black" : "gray";
-	document.getElementById("referenceColor-items").style.display = window.showReferenceColors ? "block" : "none";
-
-	document.getElementById("proceduralColors-heading").style.color = window.showProceduralColors ? "black" : "gray";
-	document.getElementById("proceduralColors-items").style.display = window.showProceduralColors ? "block" : "none";
-
-	document.getElementById("colorspaceTestColors-heading").style.color = window.showColorspaceTestColors ? "black" : "gray";
-	document.getElementById("colorspaceTestColors-items").style.display = window.showColorspaceTestColors ? "block" : "none";
-
+function toDegree(value) {
+	return Math.round(value) + "°";
 }
 
+window.onresize = (event) => {
+		update();
+	}
 window.onload = init;
 

@@ -4,113 +4,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Color lab</title>
+    <title>Nyans // harmonic color picker</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
  
 <body>
     <script src="lib/d3.v7.min.js"></script>
     <script src="lib/chroma.min.js"></script>
+    <script src="js/uilib.js"></script>
     <script src="js/graph.js"></script>
-    <div class="main">
-
-      <div class="colorsPanel">
-        <h3 id="settings-heading">Settings</h3>
-        <div id="settings-items">
-          <h4>Radial axis shows</h4>
-          <fieldset>
-            <div class="radio-option">
-              <input type="radio" id="hueVsLightness-input" name="drone" value="HueVsLightness" checked />
-              <label for="HueVsLightness">Lightness</label>
-            </div>
-            <div  class="radio-option">
-              <input type="radio" id="hueVsSaturation-input" name="drone" value="hueVsSaturation" />
-              <label for="hueVsSaturation">Saturation</label>
-            </div>
-          </fieldset>
-          <h4 id="colorspaceTestColors-heading">Colorspace</h4>
-          <div id="colorspaceTestColors-items">
-            <p>Colorspace: HSL</p>
-          </div>
-        </div>
-
-        <h3>Colors</h3>
-
-        <h4 id="proceduralColors-heading">New</h4>
-        <div id="proceduralColors-items">
-          <svg id="colorGridSVG" width="200" ></svg>
-          <button id="copyColors-button">Copy new colors</button>
-          <button id="saveColors-button">Save new colors</button>
-        </div>
-        
-        <h4 id="referenceColor-heading">Saved</h4>
-        <div id="referenceColor-items">
-          <svg id="savedColorsSVG" width="200"></svg>
-          <button id="pasteColors-button">Paste colors</button>
-          <button id="copyReferenceColors-button">Copy saved colors</button>
-          <button id="clearSavedColors-button">Clear</button>
-        </div>
-
-      </div>
-
-      <div id="graph">
-        <svg id="chart1"></svg>
-      </div>
+    <div class="wrapper">
+    <header>
+      Nyans // harmonic color picker
+    </header>
+    <aside class="sidebar left-panel" id="left-panel">
       
-      <div class="controls">
-        <h3>Create colors</h3>
-        <h4>Color groups</h4>
-        <span>
-          <p>Number of hue groups</p>
-          <input class="slider" type="range" id="hueCount-input" name="hueCount" step = "1" min="1" max="20" />
-          <span id="hueCount-label">-</span>
-        </span>      
-        <span>
-        <span>
-          <p>Colors per group</p>
-          <input class="slider" type="range" id="pointsPerLine-input" name="pointsPerLine" step = "1" min="1" max="24" />
-          <span id="pointsPerLine-label">-</span>
-        </span>
-        <h4>Hue</h4>
-        <span>
-          <p>Increment</p>
-          <input class="slider" type="range" id="hueTilt-input" name="hueTilt" step = "1" min="-180" max="180" />
-          <span id="hueTilt-label">-</span>
-        </span>    
-        <span>
-          <p>Offset</p>
-          <input class="slider" type="range" id="hueOffset-input" name="hueOffset" step = "1" min="-180" max="180" />
-          <span id="hueOffset-label">-</span>
-        </span>
-        <h4>Saturation</h4>
-        <span>
-          <p>Darks</p>
-          <input class="slider" type="range" id="lowSaturation-input" name="lowSaturation" step = "0.01" min="0.01" max="1" />
-          <span id="lowSaturation-label">-</span>
-        </span>
-        <span>
-          <p>Mid</p>
-          <input class="slider" type="range" id="midSaturation-input" name="midSaturation" step = "0.01" min="0.01" max="1" />
-          <span id="midSaturation-label">-</span>
-        </span>
-        <span>
-          <p>Lights</p>
-          <input class="slider" type="range" id="highSaturation-input" name="highSaturation" step = "0.01" min="0.01" max="1" />
-          <span id="highSaturation-label">-</span>
-        </span>
-        <h4>Lightness</h4>      
-        <span>
-          <p>Darkest value</p>
-          <input class="slider" type="range" id="minValue-input" name="minValue" step = "0.01" min="0.01" max="0.99" />
-          <span id="minValue-label">-</span>
-        </span>
-        <span>
-          <p>Brightest value</p>
-          <input class="slider" type="range" id="maxValue-input" name="maxValue" step = "0.01" min="0.01" max="0.99" />
-          <span id="maxValue-label">-</span>
-        </span>
-      </div>      
-    </div>      
-  </body>
- 
+    </aside>
+    <main class="canvas">
+      <svg id="chart1"></svg>
+    </main>
+    <aside class="sidebar right-panel" id="right-panel">
+      
+    </aside>
+    <footer>
+      Handmade by <a href="https://oskargideonlundqvist.com">Oskar Gideon Lundqvist</a>
+    </footer>
+  </div>
+</body> 
 </html>
