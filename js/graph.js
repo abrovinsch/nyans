@@ -24,29 +24,45 @@ const testReferenceColorsList = [
 // Declare the chart dimensions and margins.
 const marginTop = 5;
 const marginRight = 5;
-const marginBottom = 100;
+const marginBottom = 5;
 const marginLeft = 5;
 
 const graphWidth = () => {
-	let viewPortHeight = Math.min(document.documentElement.clientHeight || 0, window.innerHeight || 0);
-	return Math.min(document.documentElement.clientWidth - 600, viewPortHeight);
+	return document.documentElement.clientWidth - 600;
 };
-const graphHeight = () => graphWidth();
+const graphHeight = () => {
+	let viewPortHeight = Math.min(document.documentElement.clientHeight || 0, window.innerHeight || 0);
+	return Math.min(viewPortHeight - 100, graphWidth());
+}
 const radius = () => (graphHeight() - marginTop - marginBottom) / 2;
 const cx = () => graphWidth() / 2;
 const cy = () => marginTop + ((graphHeight() - marginTop - marginBottom) / 2);
 
 // Declare the radials scale
-let rScale = (t) => t * radius();
+let polarHeightScale = (t) => t * radius();
+let xScale = (t) => marginLeft + (t /360) * (graphWidth() - marginRight - marginLeft);
+let yScale = (t) => marginTop + (1-t) * (graphHeight() - marginTop - marginBottom);
 
-function colorToPolarCoords (color) {
+function HeightComponentOfHSL(hsl) {
+	return window.inputParameters.variableOnRadialAxis == 'Lightness' ? hsl[2] : 1 - hsl[1];
+}
+
+function colorToChartCoordinate(color) {
 	let hsl = color.hsl();
-	let radialHeight = window.inputParameters.variableOnRadialAxis == 'Lightness' ? hsl[2] : 1 - hsl[1];
+	let radialHeight = HeightComponentOfHSL(hsl);
+	return window.inputParameters.chartCoordinateTransformer(hsl[0], radialHeight);
+	//return polarChartCoordinate(hsl[0], radialHeight);
+}
 
-	const angleRad = (hsl[0] - 90) * (Math.PI / 180); // rotate so 0° = up
+function cartesianChartCoordinate(x, y) {
+	return {x: xScale(x), y: yScale(y)};
+}
+
+function polarChartCoordinate (x, y) {
+	const angleRad = (x - 90) * (Math.PI / 180); // rotate so 0° = up
 	let polarPoint = {
-		x: cx() + rScale(radialHeight) * Math.cos(angleRad),
-		y: cy() + rScale(radialHeight) * Math.sin(angleRad)
+		x: cx() + polarHeightScale(y) * Math.cos(angleRad),
+		y: cy() + polarHeightScale(y) * Math.sin(angleRad)
 	};
 	return polarPoint;
 }
@@ -57,7 +73,7 @@ function redraw() {
 		.attr("width", graphWidth())
 	  .attr("height", graphHeight());
 
-	drawGrid(12, "#dddddd", 0.25, 1);
+	drawGrid(12, 12, "#dddddd", 0.01, 1);
 
 	drawColorRangeLines("#chart1", window.colorRanges, window.showProceduralColors, "colorRangeLines");
 
@@ -69,47 +85,47 @@ function redraw() {
 	drawColorGridSVG(window.referenceColors, window.inputParameters.pointsPerLine, "#reference-colors-grid");
 }
 
-function drawGrid(longitudalLines, color, innerRadius, outerRadius){
+function drawGrid(longitudalLines, heightLines, color, innerRadius, outerRadius){
 	const grid = d3.select("#chart1").selectAll("g.axis").data([null]);// bind a single dummy element
+	const epsilon = 0.001;
 
 	const gridEnter = grid.enter()
 		.append("g")
 		.attr("class", "axis");
 
-	const gridMerged = gridEnter.merge(grid)
-		.attr("transform", `translate(${cx()}, ${cy()})`);
-	
-	// Latitudal "circles"
-	const latitudalGridLines = gridMerged.selectAll("circle.latitudalGridLine")
-		.data(d3.range(0, outerRadius + 0.01, innerRadius));		
-	latitudalGridLines.join(
-		enter => enter.append("circle")
-			.attr("class", "latitudalGridLine")
-			.attr("r", d => rScale(d))
-			.attr("stroke", color)
-			.attr("fill", "none"),
-		update => update
-			.attr("r", d => rScale(d)),
-		exit => exit.remove()
+	const gridMerged = gridEnter.merge(grid);
+	let heightsForLines = d3.range(innerRadius, outerRadius, (outerRadius - innerRadius - epsilon) / heightLines)
+	const heightPolyLines = heightsForLines.map(
+		(y) => {
+			let xVals = d3.range(0, 360, (360 - epsilon) / 90);
+			let result = xVals.map((xVal) => [xVal, y]);
+			return result;
+		}
 	);
+	const lineFunc = d3.line()
+		.x((d) => { return window.inputParameters.chartCoordinateTransformer(d[0],d[1]).x }) 
+		.y((d) => { return window.inputParameters.chartCoordinateTransformer(d[0],d[1]).y }) 
+		.curve(d3.curveMonotoneX);
+
+	drawChartPolyLine(gridMerged, heightPolyLines, lineFunc, color, 1, true, "heightGridLine");
 
 	// Longitudal lines
 	const longitudalGridLines = gridMerged.selectAll("line.longitudalGridLine")
-		.data(d3.range(0, 360, 360 / longitudalLines));		
+		.data(d3.range(0, 360, (360 -.01) / longitudalLines));		
 	longitudalGridLines.join(
 		enter => enter.append("line")
 			.attr("class", "longitudalGridLine")
 			.attr("stroke", color)
-			.attr("x1", d => rScale(innerRadius) * Math.cos((d - 90) * Math.PI / 180))
-			.attr("y1", d => rScale(innerRadius) * Math.sin((d - 90) * Math.PI / 180))
-			.attr("x2", d => rScale(outerRadius) * Math.cos((d - 90) * Math.PI / 180))
-			.attr("y2", d => rScale(outerRadius) * Math.sin((d - 90) * Math.PI / 180))
+			.attr("x1", d => window.inputParameters.chartCoordinateTransformer(d, innerRadius).x)
+			.attr("y1", d => window.inputParameters.chartCoordinateTransformer(d, innerRadius).y)
+			.attr("x2", d => window.inputParameters.chartCoordinateTransformer(d, outerRadius).x)
+			.attr("y2", d => window.inputParameters.chartCoordinateTransformer(d, outerRadius).y)
 			.attr("fill", "none"),
 		update => update
-			.attr("x1", d => rScale(innerRadius) * Math.cos((d - 90) * Math.PI / 180))
-			.attr("y1", d => rScale(innerRadius) * Math.sin((d - 90) * Math.PI / 180))
-			.attr("x2", d => rScale(outerRadius) * Math.cos((d - 90) * Math.PI / 180))
-			.attr("y2", d => rScale(outerRadius) * Math.sin((d - 90) * Math.PI / 180)),
+			.attr("x1", d => window.inputParameters.chartCoordinateTransformer(d, innerRadius).x)
+			.attr("y1", d => window.inputParameters.chartCoordinateTransformer(d, innerRadius).y)
+			.attr("x2", d => window.inputParameters.chartCoordinateTransformer(d, outerRadius).x)
+			.attr("y2", d => window.inputParameters.chartCoordinateTransformer(d, outerRadius).y),
 		exit => exit.remove()
 	);
 }
@@ -120,8 +136,8 @@ function drawColorPoints(svgElement, data, elementType, className, visibility, p
 	const colorFunc = (d) => d.hex();
 
 	if(elementType === "circle") {
-		const x_func = (d) => {return colorToPolarCoords(d).x};
-		const y_func = (d) => {return colorToPolarCoords(d).y};
+		const x_func = (d) => {return colorToChartCoordinate(d).x};
+		const y_func = (d) => {return colorToChartCoordinate(d).y};
 
 		elements.join(
 			enter => enter.append("circle")
@@ -142,8 +158,8 @@ function drawColorPoints(svgElement, data, elementType, className, visibility, p
 		);
 	} else if (elementType === "rect"){
 
-		const x_func = (d) => {return colorToPolarCoords(d).x - pointSize / 2};
-		const y_func = (d) => {return colorToPolarCoords(d).y - pointSize / 2};
+		const x_func = (d) => {return colorToChartCoordinate(d).x - pointSize / 2};
+		const y_func = (d) => {return colorToChartCoordinate(d).y - pointSize / 2};
 
 		elements.join(
 			enter => enter.append("rect")
@@ -168,22 +184,21 @@ function drawColorPoints(svgElement, data, elementType, className, visibility, p
 }
 
 function drawColorRangeLines(svgElement, ranges, visibility, className) {
-
 	let polyLines = [];
 	for (var i = 0; i < ranges.length; i++) {
 		polyLines.push(evaluateColorRange(ranges[i], 40));
 	}
-
 	const lineFunc = d3.line()
-		.x((d) => { return colorToPolarCoords(d).x }) 
-		.y((d) => { return colorToPolarCoords(d).y }) 
+		.x((d) => { return colorToChartCoordinate(d).x }) 
+		.y((d) => { return colorToChartCoordinate(d).y }) 
 		.curve(d3.curveMonotoneX);
 
-	const color = "gray"
-	const strokeWidth = 0.3;
-	const visibilityAttr = visibility ? "visible" : "hidden"; 
+	drawChartPolyLine(d3.select(svgElement), polyLines, lineFunc, "gray", 0.3, visibility, className);
+}
 
-	const paths = d3.select(svgElement).selectAll(`path.${className}`).data(polyLines);
+function drawChartPolyLine(parentObject, polyLines, lineFunc, color, strokeWidth, visibility, className) {
+	const visibilityAttr = visibility ? "visible" : "hidden"; 
+	const paths = parentObject.selectAll(`path.${className}`).data(polyLines);
 	paths.join(
   	enter => enter.append("path")
     	.attr("class",className)
@@ -348,8 +363,8 @@ function generateColorRanges(amount, hueRotation, tilt, minLightness, maxLightne
 function calculateTestColors() {
 	window.testColors = [];
 
-	let testColorDepth = 5;
-	let testColorHues = 12;
+	let testColorDepth = 12;
+	let testColorHues = 24;
 	let testColorRanges = [];
 
 	testColorRanges = testColorRanges.concat(
@@ -424,6 +439,17 @@ async function pasteColors() {
 	});
 }
 
+function setChartCoordinateSystem(system) {
+	if(system == "Cartesian") {
+		window.inputParameters.chartCoordinateTransformer = cartesianChartCoordinate;
+		window.inputParameters.chartCoordinateSystem = system;
+	} else {
+		window.inputParameters.chartCoordinateTransformer = polarChartCoordinate;
+		window.inputParameters.chartCoordinateSystem = "Polar";
+	}
+	//update();
+}
+
 function init(){
 	window.inputParameters = {
 		variableOnRadialAxis: "Lightness",
@@ -438,6 +464,8 @@ function init(){
 		midSaturation: 0.3,
 		highSaturation: 0.5,
 		colorSpace: "HSL",
+		chartCoordinateTransformer: polarChartCoordinate,
+		chartCoordinateSystem : "Polar",
 
 		pointToColorConverter: pointToHSLColor,
 	}
@@ -471,6 +499,19 @@ function createUIElements() {
 		titleText = "Secondary axis", 
 		onInput = (value) => {window.inputParameters.variableOnRadialAxis = value}, 
 		valueBind = () => window.inputParameters.variableOnRadialAxis
+	);
+
+	createRadioInput(
+		idText = "graph-style-input", 
+		parentId = "settings", 
+		options = ["Polar","Cartesian"], 
+		titleText = "Graph coordinate system", 
+		onInput = (value) => {
+			setChartCoordinateSystem(value);
+		}, 
+		valueBind = () => {
+			return window.inputParameters.chartCoordinateSystem
+		}
 	);
 
 	// Color space
@@ -535,7 +576,7 @@ function createUIElements() {
 		parentId = "reference-colors", 
 		titleText = "Copy", 
 		onInput = () => {
-			copyColorsToClipboard(window.proceduralColors);
+			copyColorsToClipboard(window.referenceColors);
 			update();
 	});
 
