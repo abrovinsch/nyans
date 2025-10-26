@@ -5,14 +5,18 @@ html, body {
 }
 
 body {
-  font-family: Arial;
+  font-family: Elza, Helvetica, Arial;
+  color: #454545;
 }
 
 .wrapper {
-  min-height: 100%;
+  --header-height: 40px;
+  --footer-height: 30px;
+
+  min-height: 100vh;
   display: grid;
   grid-template-columns: 300px 1fr 300px;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: var(--header-height) 1fr var(--footer-height);
   grid-template-areas:
     "header header header"
     "left-panel content right-panel"
@@ -20,32 +24,47 @@ body {
 }
 
 header {
-  margin: 10px;
+  padding: 10px;
+  padding-right: 20px;
+  padding-left: 20px;
   grid-area: header;
+  border-bottom: 1px solid #eeeeee;
 }
 
 .sidebar {
-  margin: 10px;
+  font-size: 10pt;
+  padding: 20px;
 }
 
 .canvas {
-  margin: 10px;
   grid-area: content;
+  overflow: hidden !important;
+  min-height: 0;
+}
+
+#main-canvas-svg{
+  display: block;
 }
 
 .left-panel{
   grid-area: left-panel;
+  border-right: 1px solid #eeeeee;
 }
 
 .right-panel{
   grid-area: right-panel;
+  border-left: 1px solid #eeeeee;
 }
 
 footer {
   grid-area: footer;
-  margin: 10px;
+  margin: 0px;
+  padding: 10px;
+  padding-right: 20px;
+  padding-left: 20px;
   font-size: 6pt;
   text-align: right;
+  border-top: 1px solid #eeeeee;
 }
 
 button {
@@ -53,20 +72,49 @@ button {
   margin-right: 2px;
 }
 
+.checkbox-container {
+	display: block;
+}
+
 .slider {
-  width: 220px;
+  width: 80%;
+  margin-bottom: 0.5em;
 }
 
 .slider-title {
   margin-block-end: 0em;
+  margin-block-start: 0.1em;
 }
 
 .slider-label {
-  margin-left: 10px;
+  margin-left: 3%;
+  min-width: 17%;
+  text-align: right;
 }
 
 .control-group-title{
-  margin-block-end: 1em;
+  margin-block-end: 0.5em;
+  margin-top:0em;
+}
+
+.control-group {
+  margin-bottom:1em;
+}
+
+.collapse-section {
+  margin-left: 0.5em;
+  margin-bottom:1em;
+}
+
+.collapse-section-title {
+  margin-top:0em;
+  margin-bottom:0.75em;
+  cursor: pointer;
+}
+
+fieldset {
+  border: none;
+  padding: 0;
 }
 
 @media (width <= 610px) {
@@ -80,14 +128,12 @@ button {
     "left-panel"
     "footer"
   }
-  .canvas {
-    margin: 3px;
-  }  
+
   .sidebar {
-    margin: 3px;
+    padding: 3px;
   }
   header {
-    margin: 3px;
+    padding: 3px;
   }  
   header {
     footer: 3px;

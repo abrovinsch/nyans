@@ -22,18 +22,23 @@ const testReferenceColorsList = [
 ];
 
 // Declare the chart dimensions and margins.
-const marginTop = 5;
-const marginRight = 5;
-const marginBottom = 5;
-const marginLeft = 5;
+const marginTop = 25;
+const marginRight = 25;
+const marginBottom = 25;
+const marginLeft = 25;
 
 const graphWidth = () => {
-	return document.documentElement.clientWidth - 600;
+	return cachedgraphWidth;
 };
 const graphHeight = () => {
+	return cachedGraphHeight;
+}
+
+function calculateGraphHeight() {
 	let viewPortHeight = Math.min(document.documentElement.clientHeight || 0, window.innerHeight || 0);
 	return Math.min(viewPortHeight - 100, graphWidth());
 }
+
 const radius = () => (graphHeight() - marginTop - marginBottom) / 2;
 const cx = () => graphWidth() / 2;
 const cy = () => marginTop + ((graphHeight() - marginTop - marginBottom) / 2);
@@ -51,7 +56,12 @@ function colorToChartCoordinate(color) {
 	let hsl = color.hsl();
 	let radialHeight = HeightComponentOfHSL(hsl);
 	return window.inputParameters.chartCoordinateTransformer(hsl[0], radialHeight);
-	//return polarChartCoordinate(hsl[0], radialHeight);
+}
+
+function referencePointToChartCoordinate(refPoint){
+	let y = HeightComponentOfHSL(chroma(refPoint.colorHex).hsl());
+	let targetHue = refPoint.hue;
+	return window.inputParameters.chartCoordinateTransformer(refPoint.hue, y); 
 }
 
 function cartesianChartCoordinate(x, y) {
@@ -73,14 +83,16 @@ function redraw() {
 		.attr("width", graphWidth())
 	  .attr("height", graphHeight());
 
-	drawGrid(12, 12, "#dddddd", 0.01, 1);
+	drawGrid(40, 6, "#dddddd", 0.01, 1);
 
 	drawColorRangeLines("#chart1", window.colorRanges, window.showProceduralColors, "colorRangeLines");
 
 	drawColorPoints("#chart1", window.proceduralColors, "circle", "proceduralColorCircle", window.showProceduralColors, 15);	
 	drawColorPoints("#chart1", window.testColors, "rect", "testColors", window.showColorspaceTestColors, 20);	
-	drawColorPoints("#chart1", window.referenceColors, "rect", "referenceColors", window.showReferenceColors, 10);	
+	drawColorPoints("#chart1", window.referenceColors, "rect", "referenceColors", window.showReferenceColors, 10);
 
+	drawReferencePoints("#chart1", window.altColorSpacePoints, "circle", "referenceColors", window.showAltColorSpace, 9);	
+	
 	drawColorGridSVG(window.proceduralColors, window.inputParameters.pointsPerLine, "#procedural-colors-grid");
 	drawColorGridSVG(window.referenceColors, window.inputParameters.pointsPerLine, "#reference-colors-grid");
 }
@@ -130,26 +142,23 @@ function drawGrid(longitudalLines, heightLines, color, innerRadius, outerRadius)
 	);
 }
 
-function drawColorPoints(svgElement, data, elementType, className, visibility, pointSize){
+function drawXYPoints(svgElement, data, elementType, className, visibility, pointSize, xFunc, yFunc, colorFunc, border=0){
 	const elements = d3.select(svgElement).selectAll(`${elementType}.${className}`).data(data);
 	const visibilityAttr = visibility ? "visible" : "hidden";
-	const colorFunc = (d) => d.hex();
-
 	if(elementType === "circle") {
-		const x_func = (d) => {return colorToChartCoordinate(d).x};
-		const y_func = (d) => {return colorToChartCoordinate(d).y};
-
 		elements.join(
 			enter => enter.append("circle")
-				.attr("cx", x_func)
-				.attr("cy", y_func)
+				.attr("cx", xFunc)
+				.attr("cy", yFunc)
 				.attr("class", className)
 				.attr("r", pointSize)
 				.style("fill", colorFunc)
+				.style("stroke-width", border)
+				.style("stroke", "black")
 				.attr("visibility", visibilityAttr),
 			update => update
-				.attr("cx", x_func)
-				.attr("cy", y_func)
+				.attr("cx", xFunc)
+				.attr("cy", yFunc)
 				.attr("r", pointSize)
 				.style("fill", colorFunc)
 				.attr("visibility", visibilityAttr),
@@ -157,22 +166,20 @@ function drawColorPoints(svgElement, data, elementType, className, visibility, p
 				.remove()
 		);
 	} else if (elementType === "rect"){
-
-		const x_func = (d) => {return colorToChartCoordinate(d).x - pointSize / 2};
-		const y_func = (d) => {return colorToChartCoordinate(d).y - pointSize / 2};
-
 		elements.join(
 			enter => enter.append("rect")
-				.attr("x", x_func)
-				.attr("y", y_func)
+				.attr("x", (d) => xFunc(d) - pointSize / 2)
+				.attr("y", (d) => yFunc(d) - pointSize / 2)
 				.attr("class", className)
 				.attr("width", pointSize)
 				.attr("height", pointSize)
 				.attr("visibility", visibilityAttr)
-				.style("fill", colorFunc),
+				.style("fill", colorFunc)
+				.style("stroke-width", border)
+				.style("stroke", "black"),
 			update => update
-				.attr("x", x_func)
-				.attr("y", y_func)
+				.attr("x", (d) => xFunc(d) - pointSize / 2)
+				.attr("y", (d) => yFunc(d) - pointSize / 2)
 				.attr("width", pointSize)
 				.attr("height", pointSize)
 				.attr("visibility", visibilityAttr)
@@ -181,6 +188,33 @@ function drawColorPoints(svgElement, data, elementType, className, visibility, p
 				.remove()
 		);
 	}
+}
+
+function drawColorPoints(svgElement, data, elementType, className, visibility, pointSize){
+	const colorFunc = (d) => sampleColorSystemFromHSL(window.altColorSpacePoints, d).hex();
+	const x_func = (d) => colorToChartCoordinate(d).x;
+	const y_func = (d) => colorToChartCoordinate(d).y;
+	drawXYPoints(svgElement, data, elementType, className, visibility, pointSize, x_func, y_func, colorFunc);
+}
+
+function drawReferencePoints(svgElement, data, elementType, className, visibility, pointSize) {
+	// Interpolated points 
+	const r = d3.range(0.1, 359, (360 - 0.001) / 100);
+	const interpolatedPoints = r.map((p) => {
+		let averageColor = InterpolateHueUsingReferencePoints1D(window.altColorSpacePoints, p);
+		return {
+			x: p,
+			colorHex: averageColor.hex(),
+			hue: p,
+			color: averageColor
+		}
+	});
+	const interp_x = (d) => referencePointToChartCoordinate(d).x;
+	const interp_y = (d) => referencePointToChartCoordinate(d).y;
+
+	drawXYPoints(svgElement, interpolatedPoints, "rect", className, visibility, 9, interp_x, interp_y, (d) => d.color, border=1);
+	const colorFunc = (d) => chroma(d.colorHex);
+	drawXYPoints(svgElement, data, elementType, className, visibility, pointSize, interp_x, interp_y, colorFunc, border=2);
 }
 
 function drawColorRangeLines(svgElement, ranges, visibility, className) {
@@ -225,6 +259,8 @@ function drawColorGridSVG(colors, columns, id) {
   const cellWidth = (totalWidth - padding * (columns - 1)) / columns;
   const rows = Math.ceil(colors.length / columns);
   const totalHeight = rows * (cellHeight + yPadding);
+
+  const colorFunc = (d) => sampleColorSystemFromHSL(window.altColorSpacePoints, d).hex();
   
   svg.attr("width", totalWidth)
      .attr("height", totalHeight);
@@ -236,7 +272,7 @@ function drawColorGridSVG(colors, columns, id) {
     .attr("height", cellHeight)
     .attr("x", (d, i) => (i % columns) * (cellWidth + padding))
     .attr("y", (d, i) => Math.floor(i / columns) * (cellHeight + yPadding))
-    .attr("fill", d => d);
+    .attr("fill", colorFunc);
 }
 
 // Geometry
@@ -407,8 +443,15 @@ function calculateProceduralColors() {
 }
 
 function update() {
+	window.cachedgraphWidth = document.documentElement.clientWidth - 600;
+	window.cachedGraphHeight = calculateGraphHeight();
+
 	calculateProceduralColors();
 	calculateTestColors();
+
+	//window.altColorSpacePoints = goetheReferencePoints;
+	window.altColorSpacePoints = pseudoNCSReferencePoints;
+
 	updateUI();
 	redraw();
 }
@@ -473,6 +516,7 @@ function init(){
 	window.showProceduralColors = true;
 	window.showReferenceColors = false;
 	window.showSettings = false;
+	window.showAltColorSpace = false;
 	//window.referenceColors = testReferenceColorsList.map(c => chroma(c));
 	window.referenceColors = [];
 
@@ -485,7 +529,7 @@ function createUIElements() {
 	window.updateRoutines = [];
 
 	// Settings
-	createCollapsableSection(
+	uiCreateCollapsableSection(
 		"settings", 
 		"left-panel", 
 		"Settings", 
@@ -494,18 +538,18 @@ function createUIElements() {
 	);
 	createRadioInput(
 		idText = "radial-axis-input", 
-		parentId = "settings", 
+		parent = "settings", 
 		options = ["Lightness","Saturation"], 
-		titleText = "Secondary axis", 
+		title = "Secondary axis", 
 		onInput = (value) => {window.inputParameters.variableOnRadialAxis = value}, 
 		valueBind = () => window.inputParameters.variableOnRadialAxis
 	);
 
 	createRadioInput(
 		idText = "graph-style-input", 
-		parentId = "settings", 
+		parent = "settings", 
 		options = ["Polar","Cartesian"], 
-		titleText = "Graph coordinate system", 
+		title = "Graph coordinate system", 
 		onInput = (value) => {
 			setChartCoordinateSystem(value);
 		}, 
@@ -515,20 +559,28 @@ function createUIElements() {
 	);
 
 	// Color space
-	createControlGroup("color-space-controls", "settings", "Color space");
+	uiCreateControlGroup("color-space-controls", "settings", "Color space");
 
 	createParagraph("colorspace-paragraph","color-space-controls", "-", valueBind = () => window.inputParameters.colorSpace)
 
-	createCheckbox(
+	uiCreateCheckbox(
 		idText = "colorspace-checkbox", 
-		parentId = "color-space-controls", 
-		titleText = "Show colorspace", 
-		onInput = (value) => {window.showColorspaceTestColors = value; console.log(value)}, 
+		parent = "color-space-controls", 
+		title = "Show colorspace", 
+		onInput = (value) => {window.showColorspaceTestColors = value}, 
 		valueBind = () => window.showColorspaceTestColors
+	);	
+
+	uiCreateCheckbox(
+		idText = "alt-colorspace-checkbox", 
+		parent = "color-space-controls", 
+		title = "Show alt colorspace", 
+		onInput = (value) => {window.showAltColorSpace = value}, 
+		valueBind = () => window.showAltColorSpace
 	);
 
 	// Procedural colors
-	createCollapsableSection(
+	uiCreateCollapsableSection(
 		"procedural-colors", 
 		"left-panel", 
 		"New colors", 
@@ -540,26 +592,26 @@ function createUIElements() {
 	grid1.id = "procedural-colors-grid"
 	document.getElementById("procedural-colors").append(grid1);
 
-	createButton(
+	uiCreateButton(
 		idText = "save-btn", 
-		parentId = "procedural-colors", 
-		titleText = "Save", 
+		parent = "procedural-colors", 
+		title = "Save", 
 		onInput = () => {
 			saveColors(window.proceduralColors);
 			update();
 	});
 
-	createButton(
+	uiCreateButton(
 		idText = "copy-procedural-btn", 
-		parentId = "procedural-colors", 
-		titleText = "Copy", 
+		parent = "procedural-colors", 
+		title = "Copy", 
 		onInput = () => {
 			copyColorsToClipboard(window.proceduralColors);
 			update();
 	});
 
 	// Reference colors
-	createCollapsableSection(
+	uiCreateCollapsableSection(
 		"reference-colors", 
 		"left-panel", 
 		"Saved colors", 
@@ -571,28 +623,28 @@ function createUIElements() {
 	grid2.id = "reference-colors-grid";
 	document.getElementById("reference-colors").append(grid2);
 
-	createButton(
+	uiCreateButton(
 		idText = "paste-reference-btn", 
-		parentId = "reference-colors", 
-		titleText = "Copy", 
+		parent = "reference-colors", 
+		title = "Copy", 
 		onInput = () => {
 			copyColorsToClipboard(window.referenceColors);
 			update();
 	});
 
-	createButton(
+	uiCreateButton(
 		idText = "copy-reference-btn", 
-		parentId = "reference-colors", 
-		titleText = "Paste", 
+		parent = "reference-colors", 
+		title = "Paste", 
 		onInput = () => {
 			pasteColors();
 			update();
 	});
 
-	createButton(
+	uiCreateButton(
 		idText = "clear-reference-btn", 
-		parentId = "reference-colors", 
-		titleText = "Clear", 
+		parent = "reference-colors", 
+		title = "Clear", 
 		onInput = () => {
 			clearSavedColors();
 			update();
@@ -601,11 +653,11 @@ function createUIElements() {
 	// RIGHT SIDE
 
 	// Color Group
-	createControlGroup("color-groups-controls", "right-panel", "Color groups");
-		createSliderElement(
+	uiCreateControlGroup("color-groups-controls", "right-panel", "Color groups");
+	uiCreateSliderElement(
 			idText = "color-groups", 
-			parentId = "color-groups-controls", 
-			titleText = "Number of hue groups", 
+			parent = "color-groups-controls", 
+			title = "Number of hue groups", 
 			min = 0, 
 			max = 20, 
 			step = 1,
@@ -613,10 +665,10 @@ function createUIElements() {
 			valueBind = () => window.inputParameters.hueCount
 	);	
 
-	createSliderElement(
+	uiCreateSliderElement(
 		idText = "colors-per-group", 
-		parentId = "color-groups-controls", 
-		titleText = "Colors per group", 
+		parent = "color-groups-controls", 
+		title = "Colors per group", 
 		min = 0, 
 		max = 24, 
 		step = 1,
@@ -625,11 +677,11 @@ function createUIElements() {
 	);
 
 	// Hue
-	createControlGroup("hue-controls", "right-panel", "Hue");
-	createSliderElement(
+	uiCreateControlGroup("hue-controls", "right-panel", "Hue");
+	uiCreateSliderElement(
 		idText = "hue-increment", 
-		parentId = "hue-controls", 
-		titleText = "Increment", 
+		parent = "hue-controls", 
+		title = "Increment", 
 		min = -180, 
 		max = 180, 
 		step = 1,
@@ -638,10 +690,10 @@ function createUIElements() {
 		toDegree
 	);
 
-	createSliderElement(
+	uiCreateSliderElement(
 		idText = "hue-offset", 
-		parentId = "hue-controls", 
-		titleText = "Offset", 
+		parent = "hue-controls", 
+		title = "Offset", 
 		min = -180, 
 		max = 180, 
 		step = 1,
@@ -651,75 +703,67 @@ function createUIElements() {
 	);	
 
 	// Saturation
-	createControlGroup("saturation-controls", "right-panel", "Saturation");
-	createSliderElement(
+	uiCreateControlGroup("saturation-controls", "right-panel", "Saturation");
+	uiCreateSliderElement(
 		idText = "dark-saturation", 
-		parentId = "saturation-controls", 
-		titleText = "Dark", 
+		parent = "saturation-controls", 
+		title = "Dark", 
 		min = 0.01, 
 		max = 1, 
 		step = 0.01,
 		onInput = (value) => {window.inputParameters.lowSaturation = Number(value)},
 		valueBind = () => window.inputParameters.lowSaturation,
-		formatLabel = toPercentage
+		labelFormatter = toPercentage
 	);	
 
-	createSliderElement(
+	uiCreateSliderElement(
 		idText = "mid-saturation", 
-		parentId = "saturation-controls", 
-		titleText = "Mid", 
+		parent = "saturation-controls", 
+		title = "Mid", 
 		min = 0.01, 
 		max = 1, 
 		step = 0.01,
 		onInput = (value) => {window.inputParameters.midSaturation = Number(value)},
 		valueBind = () => window.inputParameters.midSaturation,
-		formatLabel = toPercentage
+		labelFormatter = toPercentage
 	);	
-	createSliderElement(
+	uiCreateSliderElement(
 		idText = "high-saturation", 
-		parentId = "saturation-controls", 
-		titleText = "Lights", 
+		parent = "saturation-controls", 
+		title = "Lights", 
 		min = 0.01, 
 		max = 1, 
 		step = 0.01,
 		onInput = (value) => {window.inputParameters.highSaturation = Number(value)},
 		valueBind = () => window.inputParameters.highSaturation,
-		formatLabel = toPercentage
+		labelFormatter = toPercentage
 	);
 	
 	// Value
-	createControlGroup("brightness-controls", "right-panel", "Brightness");
-	createSliderElement(
+	uiCreateControlGroup("brightness-controls", "right-panel", "Brightness");
+	uiCreateSliderElement(
 		idText = "darkest-value", 
-		parentId = "brightness-controls", 
-		titleText = "Darkest value", 
+		parent = "brightness-controls", 
+		title = "Darkest value", 
 		min = 0.01, 
-		max = 1, 
+		max = 0.99, 
 		step = 0.01,
 		onInput = (value) => {window.inputParameters.minValue = Number(value)},
 		valueBind = () => window.inputParameters.minValue,
-		formatLabel = toPercentage
+		labelFormatter = toPercentage
 	);
 
-	createSliderElement(
+	uiCreateSliderElement(
 		idText = "brightest-value", 
-		parentId = "brightness-controls", 
-		titleText = "Brightest value", 
+		parent = "brightness-controls", 
+		title = "Brightest value", 
 		min = 0.01, 
-		max = 1, 
+		max = 0.99, 
 		step = 0.01,
 		onInput = (value) => {window.inputParameters.maxValue = Number(value)},
 		valueBind = () => window.inputParameters.maxValue,
-		formatLabel = toPercentage
+		labelFormatter = toPercentage
 	);
-}
-
-function toPercentage(value) {
-	return Math.round(value * 100) + "%";
-}
-
-function toDegree(value) {
-	return Math.round(value) + "°";
 }
 
 window.onresize = (event) => {
